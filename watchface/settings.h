@@ -2,11 +2,10 @@
 #define SETTINGS_H
 
 //Weather Settings
-#define CITY_ID "5128581" //New York City https://openweathermap.org/current#cityid
-
-//You can also use LAT,LON for your location instead of CITY_ID, but not both
-//#define LAT "40.7127" //New York City, Looked up on https://www.latlong.net/
-//#define LON "-74.0059"
+//Location: Cambridge, Cambridgeshire, UK (city centre)
+//You can use CITY_ID (https://openweathermap.org/current#cityid) or LAT,LON, but not both
+#define LAT "52.2053"
+#define LON "0.1218"
 
 #ifdef CITY_ID
     #define OPENWEATHERMAP_URL "http://api.openweathermap.org/data/2.5/weather?id={cityID}&lang={lang}&units={units}&appid={apiKey}" //open weather api using city ID
@@ -20,7 +19,10 @@
 #define WEATHER_UPDATE_INTERVAL 30 //must be greater than 5, measured in minutes
 //NTP Settings
 #define NTP_SERVER "pool.ntp.org"
-#define GMT_OFFSET_SEC 3600 * -5 //New York is UTC -5 EST, -4 EDT, will be overwritten by weather data
+//UK time: GMT (UTC+0) in winter, BST (UTC+1) from the last Sunday of March at 01:00
+//to the last Sunday of October at 02:00. Applied whenever the watch syncs its time.
+#define TIMEZONE "GMT0BST,M3.5.0/1,M10.5.0"
+#define GMT_OFFSET_SEC 0 //used only until the first time sync; TIMEZONE takes over after that
 
 //WiFi Settings
 //Your network name and password go in wifi_secrets.h (copy wifi_secrets.example.h).
@@ -54,6 +56,7 @@ watchySettings settings{
     .vibrateOClock = true,
     .wifiSSID = WIFI_SSID,
     .wifiPassword = WIFI_PASSWORD,
+    .timezone = TIMEZONE,
 };
 
 #endif

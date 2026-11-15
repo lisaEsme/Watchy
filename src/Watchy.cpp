@@ -1146,13 +1146,33 @@ bool Watchy::syncNTP(long gmt, String ntpServer) {
   // NTP sync - call after connecting to
   // WiFi and remember to turn it back off
   WiFiUDP ntpUDP;
-  NTPClient timeClient(ntpUDP, ntpServer.c_str(), gmt);
+  bool useTimezone = settings.timezone.length() > 0;
+  // With a time zone rule, fetch UTC and convert below; otherwise apply gmt
+  NTPClient timeClient(ntpUDP, ntpServer.c_str(), useTimezone ? 0 : gmt);
   timeClient.begin();
   if (!timeClient.forceUpdate()) {
     return false; // NTP sync failed
   }
+  time_t now = (time_t)timeClient.getEpochTime();
   tmElements_t tm;
-  breakTime((time_t)timeClient.getEpochTime(), tm);
+  if (useTimezone) {
+    // Convert UTC to local time using the rule, including daylight saving
+    setenv("TZ", settings.timezone.c_str(), 1);
+    tzset();
+    struct tm local;
+    localtime_r(&now, &local);
+    tm.Second = local.tm_sec;
+    tm.Minute = local.tm_min;
+    tm.Hour   = local.tm_hour;
+    tm.Wday   = local.tm_wday + 1; // TimeLib: 1 = Sunday
+    tm.Day    = local.tm_mday;
+    tm.Month  = local.tm_mon + 1;  // TimeLib: 1 = January
+    tm.Year   = local.tm_year + 1900 - 1970; // TimeLib: years since 1970
+    // Remember the offset in effect now (e.g. 0 for GMT, 3600 for BST)
+    gmtOffset = (long)(makeTime(tm) - now);
+  } else {
+    breakTime(now, tm);
+  }
   RTC.set(tm);
   return true;
 }

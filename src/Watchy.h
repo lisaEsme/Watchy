@@ -63,6 +63,10 @@ typedef struct watchySettings {
   // WiFi network to join. Leave empty to use the network saved via "Setup WiFi".
   String wifiSSID;
   String wifiPassword;
+  // POSIX time zone rule, e.g. "GMT0BST,M3.5.0/1,M10.5.0" for the UK.
+  // When set, time syncs apply daylight saving automatically and gmtOffset is
+  // only used until the first sync. Leave empty to use the fixed gmtOffset.
+  String timezone;
 } watchySettings;
 
 class Watchy {
