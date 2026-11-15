@@ -1,0 +1,68 @@
+# Builds our watch face firmware in the cloud with PlatformIO (platformio.ini),
+# so no build tools are needed on our own computer.
+#
+# Result: a "watchy-firmware" artifact on each run (Actions tab > the run > Artifacts),
+# containing one combined .bin to flash at address 0x0 with esptool:
+#   esptool --chip esp32 --port /dev/ttyACM0 --baud 921600 write-flash 0x0 Watchy-firmware-v20.bin
+name: Build Watchy firmware
+
+on:
+  push:
+    paths:
+      - "watchface/**"
+      - "src/**"
+      - "pio-lib/**"
+      - "platformio.ini"
+      - ".github/workflows/firmware.yml"
+  pull_request:
+  workflow_dispatch: # allows a manual "Run workflow" button in the Actions tab
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache PlatformIO tools and libraries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            .pio/libdeps
+          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+
+      - name: Install PlatformIO
+        run: pip install "platformio==6.2.0"
+
+      - name: Build
+        run: pio run -e watchy-v20
+
+      - name: Combine bootloader, partitions and app into one file
+        run: |
+          B=.pio/build/watchy-v20
+          P=~/.platformio/packages
+          mkdir -p out
+          python "$P/tool-esptoolpy/esptool.py" --chip esp32 merge_bin \
+            -o out/Watchy-firmware-v20.bin \
+            --flash_mode keep --flash_freq keep --flash_size keep \
+            0x1000 "$B/bootloader.bin" \
+            0x8000 "$B/partitions.bin" \
+            0xe000 "$P/framework-arduinoespressif32/tools/partitions/boot_app0.bin" \
+            0x10000 "$B/firmware.bin"
+          cat > out/HOW-TO-FLASH.txt <<EOF
+          Built from commit ${GITHUB_SHA} on branch ${GITHUB_REF_NAME}.
+
+          Flash with esptool (watch plugged in by USB):
+            ~/esptool-venv/bin/python -m esptool --chip esp32 --port /dev/ttyACM0 --baud 921600 write-flash 0x0 Watchy-firmware-v20.bin
+          EOF
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: watchy-firmware
+          path: out/
+          retention-days: 30
