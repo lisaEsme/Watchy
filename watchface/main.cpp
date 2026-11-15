@@ -174,19 +174,35 @@ private:
     return makeTime(midnight);
   }
 
-  // The moon times for the date shown on the watch. They take a moment to search
-  // for, so they are kept between the minute-by-minute wake-ups (in memory that
-  // survives deep sleep) and only recalculated when the date changes.
-  static RTC_DATA_ATTR long moonForDate;   // the date they are for, as YYYYMMDD
-  static RTC_DATA_ATTR time_t moonRiseUTC; // when the moon rose that day (0 = no moonrise)
-  static RTC_DATA_ATTR time_t moonSetUTC;  // when it set after that (or that day's moonset)
+  // Which moonrise and moonset to show:
+  //  - while the moon is up: when it rose (even if that was yesterday) and when it sets;
+  //  - once it has set: the moonrise on the date shown on the watch (--:-- on the
+  //    roughly monthly days without one) and the moonset after it.
+  // They take a moment to search for, so they are kept between the minute-by-minute
+  // wake-ups (in memory that survives deep sleep) and only recalculated when the date
+  // changes or the moon rises or sets.
+  static RTC_DATA_ATTR long moonForDate;   // date of the last calculation, as YYYYMMDD
+  static RTC_DATA_ATTR time_t moonCheckedAt;
+  static RTC_DATA_ATTR bool moonWasUp;
+  static RTC_DATA_ATTR time_t moonRiseUTC; // the moonrise to show (0 = none that day)
+  static RTC_DATA_ATTR time_t moonSetUTC;  // the moonset to show
 
   void updateMoon(time_t now, float lat, float lon) {
     long date = (currentTime.Year + 1970L) * 10000 + currentTime.Month * 100 + currentTime.Day;
-    if (date == moonForDate) {
+    bool stale = date != moonForDate || now < moonCheckedAt ||
+                 (moonWasUp && moonSetUTC && now >= moonSetUTC) ||               // it has set
+                 (!moonWasUp && moonRiseUTC > moonCheckedAt && now >= moonRiseUTC); // it has risen
+    if (!stale) {
       return;
     }
     moonForDate = date;
+    moonCheckedAt = now;
+    moonWasUp = moon::isUp(now, lat, lon);
+    if (moonWasUp) {
+      moonRiseUTC = moon::findEvent(true, now, -1, 30, lat, lon);
+      moonSetUTC = moon::findEvent(false, now, +1, 30, lat, lon);
+      return;
+    }
     // The local day runs from local midnight to the next local midnight (23 or 25 hours
     // long when the clocks change)
     time_t dayStart = localMidnight(currentTime.Year + 1970, currentTime.Month, currentTime.Day);
@@ -280,6 +296,8 @@ private:
 };
 
 RTC_DATA_ATTR long WatchFace::moonForDate = 0;
+RTC_DATA_ATTR time_t WatchFace::moonCheckedAt = 0;
+RTC_DATA_ATTR bool WatchFace::moonWasUp = false;
 RTC_DATA_ATTR time_t WatchFace::moonRiseUTC = 0;
 RTC_DATA_ATTR time_t WatchFace::moonSetUTC = 0;
 
