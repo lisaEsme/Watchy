@@ -25,3 +25,13 @@
 #define SUNSET_TOP     149
 #define SUNSET_RIGHT   198
 #define SUNSET_BOTTOM  160
+
+#define LABEL1_LEFT    93
+#define LABEL1_TOP     129
+#define LABEL1_RIGHT   154
+#define LABEL1_BOTTOM  140
+
+#define LABEL2_LEFT    99
+#define LABEL2_TOP     147
+#define LABEL2_RIGHT   154
+#define LABEL2_BOTTOM  158

@@ -29,3 +29,13 @@ const int16_t sun_arc_positions[101][2] PROGMEM = {
   {153, 9}, {155, 9}, {156, 10}, {158, 10}, {159, 11}, {161, 11}, {162, 11}, {164, 12},
   {165, 12}, {167, 13}, {168, 13}, {170, 14}, {171, 15}
 };
+
+// The moon icon (black = 1), from design/moon.png. Draw it at a sun position
+// plus MOON_OFFSET_X/Y so that it is centred where the sun would be.
+#define MOON_WIDTH  15
+#define MOON_HEIGHT 13
+#define MOON_OFFSET_X 0
+#define MOON_OFFSET_Y 1
+const unsigned char moon_icon[] PROGMEM = {
+  0x07, 0xe0, 0x1f, 0xf2, 0x3f, 0xe0, 0x7f, 0xc0, 0x7e, 0x00, 0xfe, 0x00, 0xee, 0x08, 0xfe, 0x00, 0x7e, 0x00, 0x7f, 0xc0, 0x3f, 0xe2, 0x1f, 0xf0, 0x07, 0xe0
+};

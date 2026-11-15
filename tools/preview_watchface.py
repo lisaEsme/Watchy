@@ -7,12 +7,14 @@ so the result matches the watch pixel for pixel (for the parts drawn here).
 Run from the repository root:
   python3 tools/preview_watchface.py out.png "09:47" "15 Nov 26" "4213" ["07:20" "16:07" 28] [--scale 3]
   (optional: sunrise time, sunset time, and the sun's step along the arc, 0-100)
+  Night, with moonrise, the coming sunrise and the moon's step ("-" if the moon isn't up):
+  python3 tools/preview_watchface.py out.png "21:00" "22 Nov 26" "8012" "14:17" "07:34" 42 --night
 """
 import re
 import sys
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
 WF = ROOT / "watchface"
@@ -75,35 +77,50 @@ class Canvas:
         self.print(text, cx - w // 2 - x1, bottom + 1, sx, sy)
 
 
-def load_sun():
+def load_icons():
     t = (WF / "face_sun.h").read_text()
-    w = int(re.search(r"SUN_WIDTH\s+(\d+)", t).group(1))
-    h = int(re.search(r"SUN_HEIGHT\s+(\d+)", t).group(1))
-    data = [int(x, 16) for x in re.search(r"sun_icon\[\] PROGMEM = \{\s*(.*?)\s*\};", t, re.S).group(1).split(",")]
+    num = lambda name: int(re.search(name + r"\s+(-?\d+)", t).group(1))
+    arr = lambda name: [int(x, 16) for x in re.search(name + r"\[\] PROGMEM = \{\s*(.*?)\s*\};", t, re.S).group(1).split(",")]
     pts = [tuple(map(int, p)) for p in re.findall(r"\{(-?\d+), (-?\d+)\}", t)]
-    return w, h, data, pts
+    sun = (num("SUN_WIDTH"), num("SUN_HEIGHT"), arr("sun_icon"))
+    moon = (num("MOON_WIDTH"), num("MOON_HEIGHT"), arr("moon_icon"))
+    return sun, moon, (num("MOON_OFFSET_X"), num("MOON_OFFSET_Y")), pts
 
 
-def draw_sun(img, step):
-    """Adafruit_GFX::drawBitmap of the sun at the given step along the arc."""
-    w, h, data, pts = load_sun()
-    px, (x0, y0), rb = img.load(), pts[step], (w + 7) // 8
+def draw_bitmap(img, x0, y0, icon):
+    """Adafruit_GFX::drawBitmap: black where the icon's bits are set."""
+    w, h, data = icon
+    px, rb = img.load(), (w + 7) // 8
     for y in range(h):
         for x in range(w):
             if data[y * rb + x // 8] & (0x80 >> (x % 8)) and 0 <= x0 + x < 200 and 0 <= y0 + y < 200:
                 px[x0 + x, y0 + y] = 0
 
 
-def render(time_text, date_text, steps_text, sunrise_text="07:20", sunset_text="16:07", sun_step="0"):
+def render(time_text, date_text, steps_text, line1="07:20", line2="16:07", step="0", night=False):
+    """Day: line1/line2 are sunrise/sunset and step places the sun.
+    Night: line1/line2 are moonrise/next sunrise and step places the moon ("-" = moon not up)."""
     L = load_layout()
     img = load_background()
     cv = Canvas(img, load_font())
     cv.centred(time_text, 6, 7, (L["TIME_LEFT"] + L["TIME_RIGHT"] + 1) // 2, L["TIME_BOTTOM"])
     cv.centred(date_text, 2, 2, (L["DATE_LEFT"] + L["DATE_RIGHT"] + 1) // 2, L["DATE_BOTTOM"])
     cv.print(steps_text, L["STEPS_LEFT"], L["STEPS_BOTTOM"] + 1, 2, 2)
-    cv.print(sunrise_text, L["SUNRISE_LEFT"], L["SUNRISE_BOTTOM"] + 1, 2, 2, tight=True)
-    cv.print(sunset_text, L["SUNSET_LEFT"], L["SUNSET_BOTTOM"] + 1, 2, 2, tight=True)
-    draw_sun(img, int(sun_step))
+    if night:  # WatchFace::replaceLabel()
+        draw = ImageDraw.Draw(img)
+        for key, label in (("LABEL1", "Moonrise"), ("LABEL2", "Sunrise")):
+            draw.rectangle((L[key + "_LEFT"], L[key + "_TOP"], L[key + "_RIGHT"], L[key + "_BOTTOM"]), fill=1)
+            x1, w = cv.bounds(label, 2, 2)
+            cv.print(label, L[key + "_RIGHT"] + 1 - w - x1, L[key + "_BOTTOM"] + 1, 2, 2)
+    cv.print(line1, L["SUNRISE_LEFT"], L["SUNRISE_BOTTOM"] + 1, 2, 2, tight=True)
+    cv.print(line2, L["SUNSET_LEFT"], L["SUNSET_BOTTOM"] + 1, 2, 2, tight=True)
+    sun, moon, (mx, my), pts = load_icons()
+    if step != "-":
+        x, y = pts[int(step)]
+        if night:
+            draw_bitmap(img, x + mx, y + my, moon)
+        else:
+            draw_bitmap(img, x, y, sun)
     return img
 
 
@@ -114,8 +131,11 @@ if __name__ == "__main__":
         i = args.index("--scale")
         scale = int(args[i + 1])
         del args[i:i + 2]
+    night = "--night" in args
+    if night:
+        args.remove("--night")
     out, time_text, date_text, steps_text, *rest = args
-    img = render(time_text, date_text, steps_text, *rest)
+    img = render(time_text, date_text, steps_text, *rest, night=night)
     if scale > 1:
         img = img.resize((200 * scale, 200 * scale), Image.NEAREST)
     img.save(out)

@@ -3,14 +3,15 @@
 
 Reads (from watchface/design/):
   face.png                 200x200 black-and-white design
-  sun.png                  the sun icon that travels along the arc (optional)
+  sun.png                  the sun icon that travels along the arc by day (optional)
+  moon.png                 the moon icon that travels along the arc at night
   PocketPixel-Regular.ttf  Pocket Pixel font (CC BY-SA 3.0, stuck-in-suburbia)
 
 Writes (to watchface/):
   face_background.h  the design with the live areas (time, date, steps) blanked
   PocketPixel.h      the font in Adafruit GFX format, 1 screen pixel per font pixel
   face_layout.h      positions of the live areas, measured from the design
-  face_sun.h         the sun icon and its positions along the arc
+  face_sun.h         the sun and moon icons and their positions along the arc
 
 Run from the repository root:  python3 tools/make_watchface_assets.py
 Needs: pip install pillow fonttools
@@ -33,6 +34,13 @@ LIVE_AREAS = {
     "STEPS": (154, 109, 198, 120),  # "10000" after the "Steps" label
     "SUNRISE": (158, 129, 198, 140),  # "00:00" after the "Sunrise" label (digits 1px closer)
     "SUNSET": (158, 149, 198, 160),   # "00:00" after the "Sunset" label (digits 1px closer)
+}
+
+# Labels that change at night. They stay in the background (daytime wording); after
+# sunset the watch blanks them and writes the night wording, right-aligned to x1.
+LABEL_AREAS = {
+    "LABEL1": (93, 129, 154, 140),  # "Sunrise" by day, "Moonrise" at night
+    "LABEL2": (99, 147, 154, 158),  # "Sunset" by day, "Sunrise" at night
 }
 
 # The sun icon and the arc it travels along. In face.png the sun sits at the start of
@@ -151,7 +159,7 @@ def write_layout():
         "#pragma once",
         "",
     ]
-    for name, (x0, y0, x1, y1) in LIVE_AREAS.items():
+    for name, (x0, y0, x1, y1) in {**LIVE_AREAS, **LABEL_AREAS}.items():
         lines += [
             f"#define {name}_LEFT    {x0}",
             f"#define {name}_TOP     {y0}",
@@ -237,7 +245,32 @@ def write_sun_and_arc():
         + ", ".join(f"0x{b:02x}" for b in data) + "\n};\n\n"
         "// Top-left corner to draw the sun at, for each step along the arc:\n"
         "// [0] = sunrise (where the design shows it), [SUN_ARC_STEPS] = sunset.\n"
-        f"const int16_t sun_arc_positions[{ARC_STEPS + 1}][2] PROGMEM = {{\n  {pts}\n}};\n"
+        f"const int16_t sun_arc_positions[{ARC_STEPS + 1}][2] PROGMEM = {{\n  {pts}\n}};\n\n"
+        + moon_icon_code(w, h)
+    )
+
+
+def moon_icon_code(sun_w, sun_h):
+    """The moon icon from design/moon.png, drawn centred where the sun would be."""
+    icon = Image.open(DESIGN / "moon.png").convert("RGBA")
+    ipx = icon.load()
+    mw, mh = icon.size
+    row_bytes = (mw + 7) // 8
+    data = []
+    for y in range(mh):
+        row = [0] * row_bytes
+        for x in range(mw):
+            r, g, b, a = ipx[x, y]
+            if a >= 128 and r + g + b < 384:
+                row[x // 8] |= 0x80 >> (x % 8)
+        data += row
+    return (
+        "// The moon icon (black = 1), from design/moon.png. Draw it at a sun position\n"
+        "// plus MOON_OFFSET_X/Y so that it is centred where the sun would be.\n"
+        f"#define MOON_WIDTH  {mw}\n#define MOON_HEIGHT {mh}\n"
+        f"#define MOON_OFFSET_X {(sun_w - mw) // 2}\n#define MOON_OFFSET_Y {(sun_h - mh) // 2}\n"
+        "const unsigned char moon_icon[] PROGMEM = {\n  "
+        + ", ".join(f"0x{b:02x}" for b in data) + "\n};\n"
     )
 
 

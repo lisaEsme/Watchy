@@ -3,6 +3,7 @@
 - `face.png`: the design, 200 × 200 pixels, black and white only. This is the source for the
   watch face background.
 - `sun.png`: the sun icon, 16 × 16, which the watch moves along the arc from sunrise to sunset.
+- `moon.png`: the moon icon, which moves along the arc at night while the moon is up (moonrise to moonset).
 - `face-annotated.png`: notes on what each part of the face is for.
 - `PocketPixel-Regular.ttf`: the font used throughout.
 
