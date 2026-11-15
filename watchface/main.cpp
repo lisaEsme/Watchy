@@ -107,7 +107,8 @@ private:
     }
     printTimes("Moonrise", line1, "Sunrise", line2);
 
-    // Third line, night only: when the moon sets (after the moonrise shown above)
+    // Third line, night only: when the moon sets after the moonrise shown above (or,
+    // on a day with no moonrise, that day's moonset)
     char line3[8] = "--:--";
     if (moonSetUTC) {
       formatLocalTime(moonSetUTC, line3, sizeof(line3));
@@ -173,30 +174,46 @@ private:
     return makeTime(midnight);
   }
 
-  // Moonrise/moonset take a moment to search for, so they are kept between the
-  // minute-by-minute wake-ups (in memory that survives deep sleep) and only
-  // recalculated hourly, or as soon as the moon rises or sets.
-  static RTC_DATA_ATTR time_t moonCheckedAt;
-  static RTC_DATA_ATTR bool moonIsUp;
-  static RTC_DATA_ATTR time_t moonRiseUTC; // when it rose (if up) or will next rise
-  static RTC_DATA_ATTR time_t moonSetUTC;  // when it next sets after moonRiseUTC
+  // The moon times for the date shown on the watch. They take a moment to search
+  // for, so they are kept between the minute-by-minute wake-ups (in memory that
+  // survives deep sleep) and only recalculated when the date changes.
+  static RTC_DATA_ATTR long moonForDate;   // the date they are for, as YYYYMMDD
+  static RTC_DATA_ATTR time_t moonRiseUTC; // when the moon rose that day (0 = no moonrise)
+  static RTC_DATA_ATTR time_t moonSetUTC;  // when it set after that (or that day's moonset)
 
   void updateMoon(time_t now, float lat, float lon) {
-    bool stale = now < moonCheckedAt || now - moonCheckedAt >= 3600 ||
-                 (moonIsUp && moonSetUTC && now >= moonSetUTC) ||
-                 (!moonIsUp && moonRiseUTC && now >= moonRiseUTC);
-    if (!stale) {
+    long date = (currentTime.Year + 1970L) * 10000 + currentTime.Month * 100 + currentTime.Day;
+    if (date == moonForDate) {
       return;
     }
-    moonCheckedAt = now;
-    moonIsUp = moon::isUp(now, lat, lon);
-    if (moonIsUp) {
-      moonRiseUTC = moon::findEvent(true, now, -1, 30, lat, lon);
-      moonSetUTC = moon::findEvent(false, now, +1, 30, lat, lon);
+    moonForDate = date;
+    // The local day runs from local midnight to the next local midnight (23 or 25 hours
+    // long when the clocks change)
+    time_t dayStart = localMidnight(currentTime.Year + 1970, currentTime.Month, currentTime.Day);
+    time_t dayEnd = localMidnight(currentTime.Year + 1970, currentTime.Month, currentTime.Day + 1);
+    int dayHours = (int)((dayEnd - dayStart + 3599) / 3600);
+    time_t rise = moon::findEvent(true, dayStart, +1, dayHours, lat, lon);
+    moonRiseUTC = (rise && rise < dayEnd) ? rise : 0;
+    if (moonRiseUTC) {
+      moonSetUTC = moon::findEvent(false, moonRiseUTC, +1, 30, lat, lon);
     } else {
-      moonRiseUTC = moon::findEvent(true, now, +1, 30, lat, lon);
-      moonSetUTC = moonRiseUTC ? moon::findEvent(false, moonRiseUTC, +1, 30, lat, lon) : 0;
+      time_t set = moon::findEvent(false, dayStart, +1, dayHours, lat, lon);
+      moonSetUTC = (set && set < dayEnd) ? set : 0;
     }
+  }
+
+  // Local midnight at the start of a date, as a UTC timestamp (day may be one past the
+  // end of the month; it rolls over to the next month)
+  time_t localMidnight(int year, int month, int day) {
+    if (useTimezone()) {
+      struct tm local = {};
+      local.tm_year = year - 1900;
+      local.tm_mon = month - 1;
+      local.tm_mday = day;
+      local.tm_isdst = -1;
+      return mktime(&local);
+    }
+    return utcMidnight(year, month, 1) + (time_t)(day - 1) * 86400 - gmtOffset;
   }
 
   // Use the UK summer time rule from settings.h for conversions (if one is set)
@@ -262,8 +279,7 @@ private:
   }
 };
 
-RTC_DATA_ATTR time_t WatchFace::moonCheckedAt = 0;
-RTC_DATA_ATTR bool WatchFace::moonIsUp = false;
+RTC_DATA_ATTR long WatchFace::moonForDate = 0;
 RTC_DATA_ATTR time_t WatchFace::moonRiseUTC = 0;
 RTC_DATA_ATTR time_t WatchFace::moonSetUTC = 0;
 

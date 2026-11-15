@@ -8,7 +8,7 @@ Run from the repository root:
   python3 tools/preview_watchface.py out.png "09:47" "15 Nov 26" "4213" ["07:20" "16:07" 28] [--scale 3]
   (optional: sunrise time, sunset time, and the sun's step along the arc, 0-100)
   Night, with moonrise, the coming sunrise, the moon's step (sunset to sunrise) and moonset:
-  python3 tools/preview_watchface.py out.png "21:38" "15 Nov 26" "9310" "13:00" "07:22" 36 "21:27" --night
+  python3 tools/preview_watchface.py out.png "21:45" "15 Nov 26" "9420" "12:42" "07:22" 37 "20:58" --night
 """
 import re
 import sys
