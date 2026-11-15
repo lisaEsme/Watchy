@@ -75,3 +75,6 @@ firmware/
 
 # Our WiFi name and password: never commit (this repository is public)
 watchface/wifi_secrets.h
+
+# Python cache files
+__pycache__/
