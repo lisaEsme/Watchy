@@ -26,6 +26,11 @@
 #define SUNSET_RIGHT   198
 #define SUNSET_BOTTOM  160
 
+#define MOONSET_LEFT    158
+#define MOONSET_TOP     169
+#define MOONSET_RIGHT   198
+#define MOONSET_BOTTOM  180
+
 #define LABEL1_LEFT    93
 #define LABEL1_TOP     129
 #define LABEL1_RIGHT   154
@@ -35,3 +40,8 @@
 #define LABEL2_TOP     147
 #define LABEL2_RIGHT   154
 #define LABEL2_BOTTOM  158
+
+#define LABEL3_LEFT    80
+#define LABEL3_TOP     167
+#define LABEL3_RIGHT   154
+#define LABEL3_BOTTOM  178

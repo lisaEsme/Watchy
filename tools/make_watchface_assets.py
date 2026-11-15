@@ -34,6 +34,7 @@ LIVE_AREAS = {
     "STEPS": (154, 109, 198, 120),  # "10000" after the "Steps" label
     "SUNRISE": (158, 129, 198, 140),  # "00:00" after the "Sunrise" label (digits 1px closer)
     "SUNSET": (158, 149, 198, 160),   # "00:00" after the "Sunset" label (digits 1px closer)
+    "MOONSET": (158, 169, 198, 180),  # night only: time after the "Moonset" label (empty by day)
 }
 
 # Labels that change at night. They stay in the background (daytime wording); after
@@ -41,6 +42,7 @@ LIVE_AREAS = {
 LABEL_AREAS = {
     "LABEL1": (93, 129, 154, 140),  # "Sunrise" by day, "Moonrise" at night
     "LABEL2": (99, 147, 154, 158),  # "Sunset" by day, "Sunrise" at night
+    "LABEL3": (80, 167, 154, 178),  # empty by day, "Moonset" at night
 }
 
 # The sun icon and the arc it travels along. In face.png the sun sits at the start of

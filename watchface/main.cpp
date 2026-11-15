@@ -3,7 +3,7 @@
 //
 // Live now: time (24-hour), date and step count. By day, today's sunrise and sunset,
 // with the sun travelling along the arc; at night, moonrise and the coming sunrise,
-// with the moon travelling along the arc while it is up.
+// with the moon travelling along the arc from sunset to sunrise, plus moonset.
 // Static for now (drawn from the design): moon phase, planetary hour and moon sign.
 // See design/face-annotated.png.
 #include <Arduino.h>
@@ -61,7 +61,7 @@ public:
 private:
   // By day: today's sunrise and sunset, and the sun on the arc (how far through the
   // daylight we are). At night (sunset to sunrise): moonrise and the coming sunrise,
-  // and the moon on the arc while it is up (how far from moonrise to moonset).
+  // and the moon on the arc showing how far through the night we are.
   void drawSun() {
     float lat = settings.lat.toFloat(), lon = settings.lon.toFloat();
     time_t now = nowUTC();
@@ -85,9 +85,13 @@ private:
       return;
     }
 
-    // Night. The coming sunrise is today's if it's before dawn, otherwise tomorrow's.
-    time_t nextSunrise = riseUTC, unused;
-    if (now >= setUTC && !sunTimes(midnightUTC + 86400, lat, lon, nextSunrise, unused)) {
+    // Night. It runs from the last sunset (today's in the evening, yesterday's before
+    // dawn) to the coming sunrise (tomorrow's in the evening, today's before dawn).
+    time_t lastSunset = setUTC, nextSunrise = riseUTC, unused;
+    bool nightKnown = (now >= setUTC)
+                          ? sunTimes(midnightUTC + 86400, lat, lon, nextSunrise, unused)
+                          : sunTimes(midnightUTC - 86400, lat, lon, unused, lastSunset);
+    if (!nightKnown) {
       nextSunrise = 0;
     }
     updateMoon(now, lat, lon);
@@ -103,8 +107,18 @@ private:
     }
     printTimes("Moonrise", line1, "Sunrise", line2);
 
-    if (moonIsUp && moonRiseUTC && moonSetUTC > moonRiseUTC) {
-      int step = (int)((now - moonRiseUTC) * SUN_ARC_STEPS / (moonSetUTC - moonRiseUTC));
+    // Third line, night only: when the moon sets (after the moonrise shown above)
+    char line3[8] = "--:--";
+    if (moonSetUTC) {
+      formatLocalTime(moonSetUTC, line3, sizeof(line3));
+    }
+    replaceLabel("Moonset", LABEL3_LEFT, LABEL3_TOP, LABEL3_RIGHT, LABEL3_BOTTOM);
+    display.setCursor(MOONSET_LEFT, MOONSET_BOTTOM + 1);
+    printTight(line3);
+
+    // The moon counts down the night: at the left end at sunset, the right end at sunrise
+    if (nightKnown && nextSunrise > lastSunset) {
+      int step = (int)((now - lastSunset) * SUN_ARC_STEPS / (nextSunrise - lastSunset));
       step = constrain(step, 0, SUN_ARC_STEPS);
       display.drawBitmap(sun_arc_positions[step][0] + MOON_OFFSET_X,
                          sun_arc_positions[step][1] + MOON_OFFSET_Y, moon_icon, MOON_WIDTH,
@@ -165,7 +179,7 @@ private:
   static RTC_DATA_ATTR time_t moonCheckedAt;
   static RTC_DATA_ATTR bool moonIsUp;
   static RTC_DATA_ATTR time_t moonRiseUTC; // when it rose (if up) or will next rise
-  static RTC_DATA_ATTR time_t moonSetUTC;  // when it will set (if up)
+  static RTC_DATA_ATTR time_t moonSetUTC;  // when it next sets after moonRiseUTC
 
   void updateMoon(time_t now, float lat, float lon) {
     bool stale = now < moonCheckedAt || now - moonCheckedAt >= 3600 ||
@@ -181,7 +195,7 @@ private:
       moonSetUTC = moon::findEvent(false, now, +1, 30, lat, lon);
     } else {
       moonRiseUTC = moon::findEvent(true, now, +1, 30, lat, lon);
-      moonSetUTC = 0;
+      moonSetUTC = moonRiseUTC ? moon::findEvent(false, moonRiseUTC, +1, 30, lat, lon) : 0;
     }
   }
 
