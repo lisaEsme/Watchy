@@ -31,6 +31,21 @@
 #define MOONSET_RIGHT   198
 #define MOONSET_BOTTOM  180
 
+#define MOON_PHASE_LEFT    19
+#define MOON_PHASE_TOP     104
+#define MOON_PHASE_RIGHT   74
+#define MOON_PHASE_BOTTOM  159
+
+#define PLANET_HOUR_LEFT    11
+#define PLANET_HOUR_TOP     180
+#define PLANET_HOUR_RIGHT   26
+#define PLANET_HOUR_BOTTOM  195
+
+#define MOON_SIGN_LEFT    34
+#define MOON_SIGN_TOP     180
+#define MOON_SIGN_RIGHT   49
+#define MOON_SIGN_BOTTOM  195
+
 #define LABEL1_LEFT    93
 #define LABEL1_TOP     129
 #define LABEL1_RIGHT   154

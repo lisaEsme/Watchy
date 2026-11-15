@@ -4,7 +4,9 @@
 // Live now: time (24-hour), date and step count. By day, today's sunrise and sunset,
 // with the sun travelling along the arc; at night, moonrise and the coming sunrise,
 // with the moon travelling along the arc from sunset to sunrise, plus moonset.
-// Static for now (drawn from the design): moon phase, planetary hour and moon sign.
+// Astrology (tropical zodiac, traditional planetary hours): the moon's phase in the
+// big disc, the planet ruling the current planetary hour under the seven-pointed
+// star (with a gentle buzz when it changes), and the moon's sign under the crescent.
 // See design/face-annotated.png.
 #include <Arduino.h>
 #include <Watchy.h>
@@ -14,6 +16,8 @@
 #include "face_background.h"
 #include "face_layout.h"
 #include "face_sun.h"
+#include "astro.h"
+#include "face_astro.h"
 #include "moon.h"
 #include "sun.h"
 #include <time.h>
@@ -54,11 +58,59 @@ public:
     display.print(text);
 
     drawSun();
+    drawAstro();
 
     display.setTextSize(1); // the menus share this display, so leave it at normal size
   }
 
 private:
+  // Moon phase, moon sign and planetary hour (see astro.h)
+  void drawAstro() {
+    float lat = settings.lat.toFloat(), lon = settings.lon.toFloat();
+    time_t now = nowUTC();
+
+    // Moon phase: the nearest of the eight phase pictures (0 = new, 4 = full)
+    int phase = (int)floor(astro::moonAge(now) * 8 + 0.5) % 8;
+    display.drawBitmap(MOON_PHASE_X, MOON_PHASE_Y, moon_phase_icons[phase],
+                       MOON_PHASE_ICONS_SIZE, MOON_PHASE_ICONS_SIZE, GxEPD_BLACK);
+
+    // The sign the moon is in (tropical)
+    int moonSign = astro::sign(astro::moonLongitude(now));
+    display.drawBitmap(MOON_SIGN_X, MOON_SIGN_Y, zodiac_icons[moonSign], ZODIAC_ICONS_SIZE,
+                       ZODIAC_ICONS_SIZE, GxEPD_BLACK);
+
+    // Planetary hour. The planetary day starts at sunrise, so before dawn we are
+    // still in yesterday's planetary day (its night hours).
+    time_t midnightUTC = utcMidnight(currentTime.Year + 1970, currentTime.Month, currentTime.Day);
+    time_t rise, set, nextRise, unused;
+    if (!sunTimes(midnightUTC, lat, lon, rise, set)) {
+      return; // no sunrise/sunset today (only near the poles)
+    }
+    time_t dayMidnight = midnightUTC;
+    if (now >= rise) {
+      if (!sunTimes(midnightUTC + 86400, lat, lon, nextRise, unused)) return;
+    } else {
+      nextRise = rise;
+      dayMidnight = midnightUTC - 86400;
+      if (!sunTimes(dayMidnight, lat, lon, rise, set)) return;
+    }
+    tmElements_t day;
+    breakTime(dayMidnight, day); // day.Wday: 1 = Sunday
+    astro::PlanetaryHour hour = astro::planetaryHour(now, rise, set, nextRise, day.Wday - 1);
+    display.drawBitmap(PLANET_HOUR_X, PLANET_HOUR_Y, planet_icons[hour.ruler], PLANET_ICONS_SIZE,
+                       PLANET_ICONS_SIZE, GxEPD_BLACK);
+
+    // A very slight buzz when a new planetary hour begins (only when it has just begun,
+    // not when the face is redrawn later, e.g. after using the menu)
+    if (lastPlanetaryHourStart != 0 && hour.start != lastPlanetaryHourStart &&
+        now - hour.start < 120) {
+      vibMotor(40, 2); // one 40 ms pulse
+    }
+    lastPlanetaryHourStart = hour.start;
+  }
+
+  static RTC_DATA_ATTR time_t lastPlanetaryHourStart;
+
   // By day: today's sunrise and sunset, and the sun on the arc (how far through the
   // daylight we are). At night (sunset to sunrise): moonrise and the coming sunrise,
   // and the moon on the arc showing how far through the night we are.
@@ -295,6 +347,7 @@ private:
   }
 };
 
+RTC_DATA_ATTR time_t WatchFace::lastPlanetaryHourStart = 0;
 RTC_DATA_ATTR long WatchFace::moonForDate = 0;
 RTC_DATA_ATTR time_t WatchFace::moonCheckedAt = 0;
 RTC_DATA_ATTR bool WatchFace::moonWasUp = false;
