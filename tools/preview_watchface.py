@@ -5,8 +5,8 @@ Uses the generated watchface/*.h data and mirrors Adafruit GFX's text drawing,
 so the result matches the watch pixel for pixel (for the parts drawn here).
 
 Run from the repository root:
-  python3 tools/preview_watchface.py out.png "09:47" "15 Nov 26" "4213" ["07:20"] [--scale 3]
-  (the last value is the sunrise time)
+  python3 tools/preview_watchface.py out.png "09:47" "15 Nov 26" "4213" ["07:20" "16:07" 28] [--scale 3]
+  (optional: sunrise time, sunset time, and the sun's step along the arc, 0-100)
 """
 import re
 import sys
@@ -75,7 +75,26 @@ class Canvas:
         self.print(text, cx - w // 2 - x1, bottom + 1, sx, sy)
 
 
-def render(time_text, date_text, steps_text, sunrise_text="07:20"):
+def load_sun():
+    t = (WF / "face_sun.h").read_text()
+    w = int(re.search(r"SUN_WIDTH\s+(\d+)", t).group(1))
+    h = int(re.search(r"SUN_HEIGHT\s+(\d+)", t).group(1))
+    data = [int(x, 16) for x in re.search(r"sun_icon\[\] PROGMEM = \{\s*(.*?)\s*\};", t, re.S).group(1).split(",")]
+    pts = [tuple(map(int, p)) for p in re.findall(r"\{(-?\d+), (-?\d+)\}", t)]
+    return w, h, data, pts
+
+
+def draw_sun(img, step):
+    """Adafruit_GFX::drawBitmap of the sun at the given step along the arc."""
+    w, h, data, pts = load_sun()
+    px, (x0, y0), rb = img.load(), pts[step], (w + 7) // 8
+    for y in range(h):
+        for x in range(w):
+            if data[y * rb + x // 8] & (0x80 >> (x % 8)) and 0 <= x0 + x < 200 and 0 <= y0 + y < 200:
+                px[x0 + x, y0 + y] = 0
+
+
+def render(time_text, date_text, steps_text, sunrise_text="07:20", sunset_text="16:07", sun_step="0"):
     L = load_layout()
     img = load_background()
     cv = Canvas(img, load_font())
@@ -83,6 +102,8 @@ def render(time_text, date_text, steps_text, sunrise_text="07:20"):
     cv.centred(date_text, 2, 2, (L["DATE_LEFT"] + L["DATE_RIGHT"] + 1) // 2, L["DATE_BOTTOM"])
     cv.print(steps_text, L["STEPS_LEFT"], L["STEPS_BOTTOM"] + 1, 2, 2)
     cv.print(sunrise_text, L["SUNRISE_LEFT"], L["SUNRISE_BOTTOM"] + 1, 2, 2, tight=True)
+    cv.print(sunset_text, L["SUNSET_LEFT"], L["SUNSET_BOTTOM"] + 1, 2, 2, tight=True)
+    draw_sun(img, int(sun_step))
     return img
 
 

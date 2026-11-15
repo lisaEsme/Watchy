@@ -1,9 +1,10 @@
 // Our own watch face, designed in watchface/design/face.png.
 // Build and upload with PlatformIO (see platformio.ini in the repository root).
 //
-// Live now: time (24-hour), date and step count, drawn in Pocket Pixel.
-// Static for now (drawn from the design): sun arc, moon phase, sunrise and
-// moonrise times, planetary hour and moon sign. See design/face-annotated.png.
+// Live now: time (24-hour), date, step count, today's sunrise and sunset, and the
+// sun travelling along the arc from sunrise to sunset.
+// Static for now (drawn from the design): moon phase, planetary hour and moon sign.
+// See design/face-annotated.png.
 #include <Arduino.h>
 #include <Watchy.h>
 
@@ -11,6 +12,7 @@
 #include "PocketPixel.h"
 #include "face_background.h"
 #include "face_layout.h"
+#include "face_sun.h"
 #include "sun.h"
 #include <time.h>
 
@@ -49,27 +51,74 @@ public:
     display.setCursor(STEPS_LEFT, STEPS_BOTTOM + 1); // cursor sits on the baseline
     display.print(text);
 
-    drawSunrise();
+    drawSun();
 
     display.setTextSize(1); // the menus share this display, so leave it at normal size
   }
 
 private:
-  // Today's sunrise for our location (settings.h), in local time, right-aligned
-  // after the "Sunrise" label
-  void drawSunrise() {
+  // Today's sunrise and sunset for our location (settings.h), in local time, and the
+  // sun's position along the arc: how far through the daylight hours we are
+  void drawSun() {
     int year = currentTime.Year + 1970;
     SunTimes sun = calculateSunTimes(year, currentTime.Month, currentTime.Day,
                                      settings.lat.toFloat(), settings.lon.toFloat());
-    char text[8];
+    char rise[8] = "--:--", set[8] = "--:--";
+    int step = 0; // 0 = sunrise end of the arc, SUN_ARC_STEPS = sunset end
     if (sun.rises) {
-      formatLocalTime(year, currentTime.Month, currentTime.Day, sun.sunriseUTC, text, sizeof(text));
-    } else {
-      strcpy(text, "--:--");
+      tmElements_t midnight = {};
+      midnight.Year = currentTime.Year;
+      midnight.Month = currentTime.Month;
+      midnight.Day = currentTime.Day;
+      time_t midnightUTC = makeTime(midnight);
+      time_t riseUTC = midnightUTC + (time_t)lroundf(sun.sunriseUTC) * 60; // nearest minute
+      time_t setUTC = midnightUTC + (time_t)lroundf(sun.sunsetUTC) * 60;
+      formatLocalTime(riseUTC, rise, sizeof(rise));
+      formatLocalTime(setUTC, set, sizeof(set));
+
+      // Before sunrise the sun waits at the start of the arc, after sunset at the end
+      time_t now = nowUTC();
+      if (now >= setUTC) {
+        step = SUN_ARC_STEPS;
+      } else if (now > riseUTC) {
+        step = (int)((now - riseUTC) * SUN_ARC_STEPS / (setUTC - riseUTC));
+      }
     }
+
     display.setTextSize(2);
     display.setCursor(SUNRISE_LEFT, SUNRISE_BOTTOM + 1);
-    printTight(text);
+    printTight(rise);
+    display.setCursor(SUNSET_LEFT, SUNSET_BOTTOM + 1);
+    printTight(set);
+
+    display.drawBitmap(sun_arc_positions[step][0], sun_arc_positions[step][1], sun_icon,
+                       SUN_WIDTH, SUN_HEIGHT, GxEPD_BLACK);
+  }
+
+  // Use the UK summer time rule from settings.h for conversions (if one is set)
+  bool useTimezone() {
+    if (settings.timezone.length() == 0) {
+      return false;
+    }
+    setenv("TZ", settings.timezone.c_str(), 1);
+    tzset();
+    return true;
+  }
+
+  // The watch's current local time as a UTC timestamp
+  time_t nowUTC() {
+    if (useTimezone()) {
+      struct tm local = {};
+      local.tm_year = currentTime.Year + 1970 - 1900;
+      local.tm_mon = currentTime.Month - 1;
+      local.tm_mday = currentTime.Day;
+      local.tm_hour = currentTime.Hour;
+      local.tm_min = currentTime.Minute;
+      local.tm_sec = currentTime.Second;
+      local.tm_isdst = -1; // let the rule decide whether it's GMT or BST
+      return mktime(&local);
+    }
+    return makeTime(currentTime) - gmtOffset;
   }
 
   // Print with digits 1 pixel closer together than the font's normal spacing,
@@ -83,18 +132,11 @@ private:
     }
   }
 
-  // Turn a time in minutes after midnight UTC on the given date into local "HH:MM",
-  // using the UK summer time rule from settings.h (or the fixed offset if none is set)
-  void formatLocalTime(int year, int month, int day, float minutesUTC, char *out, size_t size) {
-    tmElements_t midnight = {};
-    midnight.Year = year - 1970;
-    midnight.Month = month;
-    midnight.Day = day;
-    time_t utc = makeTime(midnight) + (time_t)lroundf(minutesUTC) * 60; // nearest minute
+  // Turn a UTC timestamp into local "HH:MM", using the UK summer time rule from
+  // settings.h (or the fixed offset if none is set)
+  void formatLocalTime(time_t utc, char *out, size_t size) {
     struct tm local;
-    if (settings.timezone.length() > 0) {
-      setenv("TZ", settings.timezone.c_str(), 1);
-      tzset();
+    if (useTimezone()) {
       localtime_r(&utc, &local);
     } else {
       time_t shifted = utc + gmtOffset;

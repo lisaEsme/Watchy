@@ -20,3 +20,8 @@
 #define SUNRISE_TOP     129
 #define SUNRISE_RIGHT   198
 #define SUNRISE_BOTTOM  140
+
+#define SUNSET_LEFT    158
+#define SUNSET_TOP     149
+#define SUNSET_RIGHT   198
+#define SUNSET_BOTTOM  160
