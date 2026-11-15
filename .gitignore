@@ -68,3 +68,7 @@ manifest.mf
 nbbuild.xml
 nbproject
 .vscode
+
+# PlatformIO build output and locally built firmware images
+.pio/
+firmware/
