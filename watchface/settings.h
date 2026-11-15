@@ -22,6 +22,20 @@
 #define NTP_SERVER "pool.ntp.org"
 #define GMT_OFFSET_SEC 3600 * -5 //New York is UTC -5 EST, -4 EDT, will be overwritten by weather data
 
+//WiFi Settings
+//Your network name and password go in wifi_secrets.h (copy wifi_secrets.example.h).
+//That file is never committed, because this repository is public.
+//Without it, the watch uses the network saved through the "Setup WiFi" menu.
+#if __has_include("wifi_secrets.h")
+    #include "wifi_secrets.h"
+#endif
+#ifndef WIFI_SSID
+    #define WIFI_SSID ""
+#endif
+#ifndef WIFI_PASSWORD
+    #define WIFI_PASSWORD ""
+#endif
+
 watchySettings settings{
     #ifdef CITY_ID
         .cityID = CITY_ID,
@@ -38,6 +52,8 @@ watchySettings settings{
     .ntpServer = NTP_SERVER,
     .gmtOffset = GMT_OFFSET_SEC,
     .vibrateOClock = true,
+    .wifiSSID = WIFI_SSID,
+    .wifiPassword = WIFI_PASSWORD,
 };
 
 #endif

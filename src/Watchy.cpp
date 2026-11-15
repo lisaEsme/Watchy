@@ -956,9 +956,13 @@ void Watchy::_configModeCallback(WiFiManager *myWiFiManager) {
 }
 
 bool Watchy::connectWiFi() {
-  if (WL_CONNECT_FAILED ==
-      WiFi.begin()) { // WiFi not setup, you can also use hard coded credentials
-                      // with WiFi.begin(SSID,PASS);
+  // Use the network from settings if one is given, otherwise the one saved via
+  // "Setup WiFi"
+  wl_status_t beginResult =
+      settings.wifiSSID.length() > 0
+          ? WiFi.begin(settings.wifiSSID.c_str(), settings.wifiPassword.c_str())
+          : WiFi.begin();
+  if (WL_CONNECT_FAILED == beginResult) { // WiFi not set up
     WIFI_CONFIGURED = false;
   } else {
     if (WL_CONNECTED ==

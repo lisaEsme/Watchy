@@ -60,6 +60,9 @@ typedef struct watchySettings {
   int gmtOffset;
   //
   bool vibrateOClock;
+  // WiFi network to join. Leave empty to use the network saved via "Setup WiFi".
+  String wifiSSID;
+  String wifiPassword;
 } watchySettings;
 
 class Watchy {
