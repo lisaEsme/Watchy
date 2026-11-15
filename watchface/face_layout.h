@@ -15,3 +15,8 @@
 #define STEPS_TOP     109
 #define STEPS_RIGHT   198
 #define STEPS_BOTTOM  120
+
+#define SUNRISE_LEFT    158
+#define SUNRISE_TOP     129
+#define SUNRISE_RIGHT   198
+#define SUNRISE_BOTTOM  140

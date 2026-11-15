@@ -53,7 +53,7 @@ watchySettings settings{
     .weatherUpdateInterval = WEATHER_UPDATE_INTERVAL,
     .ntpServer = NTP_SERVER,
     .gmtOffset = GMT_OFFSET_SEC,
-    .vibrateOClock = true,
+    .vibrateOClock = false, //no buzz on the hour
     .wifiSSID = WIFI_SSID,
     .wifiPassword = WIFI_PASSWORD,
     .timezone = TIMEZONE,

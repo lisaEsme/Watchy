@@ -5,7 +5,8 @@ Uses the generated watchface/*.h data and mirrors Adafruit GFX's text drawing,
 so the result matches the watch pixel for pixel (for the parts drawn here).
 
 Run from the repository root:
-  python3 tools/preview_watchface.py out.png "09:47" "15 Nov 26" "4213" [--scale 3]
+  python3 tools/preview_watchface.py out.png "09:47" "15 Nov 26" "4213" ["07:20"] [--scale 3]
+  (the last value is the sunrise time)
 """
 import re
 import sys
@@ -55,7 +56,8 @@ class Canvas:
             x += a * sx
         return minx, maxx - minx + 1
 
-    def print(self, text, x, y, sx, sy):
+    def print(self, text, x, y, sx, sy, tight=False):
+        """tight: digits 1 pixel closer together, like the watch's printTight()"""
         for ch in text:
             o, w, h, a, xo, yo = self.g[ch]
             for i in range(w * h):
@@ -66,20 +68,21 @@ class Canvas:
                             X, Y = x + (xo + c) * sx + dx, y + (yo + r) * sy + dy
                             if 0 <= X < 200 and 0 <= Y < 200:
                                 self.px[X, Y] = 0
-            x += a * sx
+            x += a * sx - (1 if tight and ch.isdigit() else 0)
 
     def centred(self, text, sx, sy, cx, bottom):
         x1, w = self.bounds(text, sx, sy)
         self.print(text, cx - w // 2 - x1, bottom + 1, sx, sy)
 
 
-def render(time_text, date_text, steps_text):
+def render(time_text, date_text, steps_text, sunrise_text="07:20"):
     L = load_layout()
     img = load_background()
     cv = Canvas(img, load_font())
     cv.centred(time_text, 6, 7, (L["TIME_LEFT"] + L["TIME_RIGHT"] + 1) // 2, L["TIME_BOTTOM"])
     cv.centred(date_text, 2, 2, (L["DATE_LEFT"] + L["DATE_RIGHT"] + 1) // 2, L["DATE_BOTTOM"])
     cv.print(steps_text, L["STEPS_LEFT"], L["STEPS_BOTTOM"] + 1, 2, 2)
+    cv.print(sunrise_text, L["SUNRISE_LEFT"], L["SUNRISE_BOTTOM"] + 1, 2, 2, tight=True)
     return img
 
 
@@ -90,8 +93,8 @@ if __name__ == "__main__":
         i = args.index("--scale")
         scale = int(args[i + 1])
         del args[i:i + 2]
-    out, time_text, date_text, steps_text = args
-    img = render(time_text, date_text, steps_text)
+    out, time_text, date_text, steps_text, *rest = args
+    img = render(time_text, date_text, steps_text, *rest)
     if scale > 1:
         img = img.resize((200 * scale, 200 * scale), Image.NEAREST)
     img.save(out)

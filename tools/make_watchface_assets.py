@@ -29,6 +29,7 @@ LIVE_AREAS = {
     "TIME": (44, 38, 167, 81),    # "12:00"
     "DATE": (71, 87, 136, 98),    # "11 Nov 26"
     "STEPS": (154, 109, 198, 120),  # "10000" after the "Steps" label
+    "SUNRISE": (158, 129, 198, 140),  # "00:00" after the "Sunrise" label (digits 1px closer)
 }
 
 FONT_GRID = 128  # Pocket Pixel is drawn on a 128-unit grid: one grid square = one pixel

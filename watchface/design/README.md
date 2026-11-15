@@ -14,13 +14,13 @@ python3 tools/make_watchface_assets.py
 ```
 
 This regenerates `watchface/face_background.h`, `watchface/PocketPixel.h` and `watchface/face_layout.h`.
-The live areas (time, date and steps) are listed at the top of that script. If you move them in
+The live areas (time, date, steps and sunrise) are listed at the top of that script. If you move them in
 `face.png`, update their positions there too.
 
 To see how the face will look on the watch, without flashing it:
 
 ```bash
-python3 tools/preview_watchface.py preview.png "09:47" "15 Nov 26" "4213" --scale 3
+python3 tools/preview_watchface.py preview.png "09:47" "15 Nov 26" "4213" "07:20" --scale 3
 ```
 
 Both scripts need `pip install pillow fonttools`.
