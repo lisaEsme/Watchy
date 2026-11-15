@@ -2,6 +2,7 @@
 
 - `face.png`: the design, 200 × 200 pixels, black and white only. This is the source for the
   watch face background.
+- `sun.png`: the sun icon, 16 × 16, which the watch moves along the arc from sunrise to sunset.
 - `face-annotated.png`: notes on what each part of the face is for.
 - `PocketPixel-Regular.ttf`: the font used throughout.
 
@@ -13,7 +14,8 @@ From the repository root:
 python3 tools/make_watchface_assets.py
 ```
 
-This regenerates `watchface/face_background.h`, `watchface/PocketPixel.h` and `watchface/face_layout.h`.
+This regenerates `watchface/face_background.h`, `watchface/PocketPixel.h`, `watchface/face_layout.h`
+and `watchface/face_sun.h`.
 The live areas (time, date, steps, sunrise and sunset) and the sun and arc are set at the top of that script. If you move them in
 `face.png`, update their positions there too.
 
