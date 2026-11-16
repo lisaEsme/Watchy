@@ -63,6 +63,9 @@ public:
     display.setTextSize(1); // the menus share this display, so leave it at normal size
   }
 
+  // The "Font Sizes" menu shows our face font, Pocket Pixel
+  const GFXfont *fontSizesFont() override { return &PocketPixel; }
+
 private:
   // Moon phase, moon sign and planetary hour (see astro.h)
   void drawAstro() {

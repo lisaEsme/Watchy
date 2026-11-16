@@ -42,6 +42,11 @@ At sunrise the face switches back to the day face.
 
 **Not used:** the default on-the-hour buzz is switched off (`vibrateOClock = false`).
 
+**Menu → Font Sizes:** shows the face font, Pocket Pixel, at every whole-number size from 1×
+(6 pixels tall) to 11× (66 pixels) over four pages. Up/Down turn the pages and Back returns to
+the menu. Useful when planning changes to the design: whole-number sizes are the only ones that
+stay sharp with this pixel font.
+
 ## Building and flashing
 
 You need the watch plugged in by USB. There are three ways:

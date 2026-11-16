@@ -12,6 +12,7 @@ GxEPD2_BW<WatchyDisplay, WatchyDisplay::HEIGHT> Watchy::display(
 
 RTC_DATA_ATTR int guiState;
 RTC_DATA_ATTR int menuIndex;
+RTC_DATA_ATTR int fontSizesPage; // page of the "Font Sizes" screen
 RTC_DATA_ATTR BMA423 sensor;
 RTC_DATA_ATTR bool WIFI_CONFIGURED;
 RTC_DATA_ATTR bool BLE_CONFIGURED;
@@ -163,6 +164,9 @@ void Watchy::handleButtonPress() {
       case 5:
         showSyncNTP();
         break;
+      case 6:
+        showFontSizes();
+        break;
       default:
         break;
       }
@@ -179,6 +183,8 @@ void Watchy::handleButtonPress() {
       showMenu(menuIndex, false); // exit to menu if already in app
     } else if (guiState == FW_UPDATE_STATE) {
       showMenu(menuIndex, false); // exit to menu if already in app
+    } else if (guiState == FONT_SIZES_STATE) {
+      showMenu(menuIndex, false); // exit to menu from the font sizes pages
     } else if (guiState == WATCHFACE_STATE) {
       return;
     }
@@ -191,6 +197,9 @@ void Watchy::handleButtonPress() {
         menuIndex = MENU_LENGTH - 1;
       }
       showMenu(menuIndex, true);
+    } else if (guiState == FONT_SIZES_STATE) {
+      fontSizesPage--;
+      showFontSizes(true);
     } else if (guiState == WATCHFACE_STATE) {
       return;
     }
@@ -203,6 +212,9 @@ void Watchy::handleButtonPress() {
         menuIndex = 0;
       }
       showMenu(menuIndex, true);
+    } else if (guiState == FONT_SIZES_STATE) {
+      fontSizesPage++;
+      showFontSizes(true);
     } else if (guiState == WATCHFACE_STATE) {
       return;
     }
@@ -245,6 +257,9 @@ void Watchy::handleButtonPress() {
           case 5:
             showSyncNTP();
             break;
+          case 6:
+            showFontSizes();
+            break;
           default:
             break;
           }
@@ -262,6 +277,8 @@ void Watchy::handleButtonPress() {
           showMenu(menuIndex, false); // exit to menu if already in app
         } else if (guiState == FW_UPDATE_STATE) {
           showMenu(menuIndex, false); // exit to menu if already in app
+        } else if (guiState == FONT_SIZES_STATE) {
+          showMenu(menuIndex, false); // exit to menu from the font sizes pages
         }
       } else if (digitalRead(UP_BTN_PIN) == ACTIVE_LOW) {
         lastTimeout = millis();
@@ -271,6 +288,9 @@ void Watchy::handleButtonPress() {
             menuIndex = MENU_LENGTH - 1;
           }
           showFastMenu(menuIndex);
+        } else if (guiState == FONT_SIZES_STATE) {
+          fontSizesPage--;
+          showFontSizes(true);
         }
       } else if (digitalRead(DOWN_BTN_PIN) == ACTIVE_LOW) {
         lastTimeout = millis();
@@ -280,6 +300,9 @@ void Watchy::handleButtonPress() {
             menuIndex = 0;
           }
           showFastMenu(menuIndex);
+        } else if (guiState == FONT_SIZES_STATE) {
+          fontSizesPage++;
+          showFontSizes(true);
         }
       }
     }
@@ -298,7 +321,7 @@ void Watchy::showMenu(byte menuIndex, bool partialRefresh) {
   const char *menuItems[] = {
       "About Watchy", "Vibrate Motor", "Show Accelerometer",
       "Set Time",     "Setup WiFi",    /*"Update Firmware",*/
-      "Sync NTP"};
+      "Sync NTP",     "Font Sizes"};
   for (int i = 0; i < MENU_LENGTH; i++) {
     yPos = MENU_HEIGHT + (MENU_HEIGHT * i);
     display.setCursor(0, yPos);
@@ -331,7 +354,7 @@ void Watchy::showFastMenu(byte menuIndex) {
   const char *menuItems[] = {
       "About Watchy", "Vibrate Motor", "Show Accelerometer",
       "Set Time",     "Setup WiFi",    /*"Update Firmware",*/
-      "Sync NTP"};
+      "Sync NTP",     "Font Sizes"};
   for (int i = 0; i < MENU_LENGTH; i++) {
     yPos = MENU_HEIGHT + (MENU_HEIGHT * i);
     display.setCursor(0, yPos);
@@ -398,6 +421,71 @@ void Watchy::showAbout() {
   display.display(false); // full refresh
 
   guiState = APP_STATE;
+}
+
+// "Font Sizes" menu: the watch face's font (fontSizesFont()) at each whole-number scale,
+// from 1x up to 11x, over several pages. Up/Down turn the pages, Back returns to the menu.
+// Whole-number scales are the only ones that stay sharp with a pixel font.
+void Watchy::showFontSizes(bool turnPage) {
+  static const uint8_t PAGES[][4] = {{1, 2, 3, 4}, {5, 6, 7, 0}, {8, 9, 0, 0}, {10, 11, 0, 0}};
+  const int pageCount = sizeof(PAGES) / sizeof(PAGES[0]);
+  if (!turnPage) {
+    fontSizesPage = 0;
+  }
+  fontSizesPage = ((fontSizesPage % pageCount) + pageCount) % pageCount;
+
+  display.setFullWindow();
+  display.fillScreen(GxEPD_WHITE);
+  display.setFont(fontSizesFont());
+  display.setTextColor(GxEPD_BLACK);
+  display.setTextWrap(false);
+
+  int16_t x1, y1;
+  uint16_t w, h;
+  char text[32];
+
+  // Height of a capital letter at 1x, to label each size in pixels
+  display.setTextSize(1);
+  display.getTextBounds("A", 0, 0, &x1, &y1, &w, &h);
+  uint16_t capHeight = h;
+
+  // Header, e.g. "Sizes 2/4"
+  display.setTextSize(2);
+  snprintf(text, sizeof(text), "Sizes %d/%d", fontSizesPage + 1, pageCount);
+  display.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
+  display.setCursor(2 - x1, 2 - y1);
+  display.print(text);
+  int16_t top = 2 + h + 8;
+
+  for (int i = 0; i < 4 && PAGES[fontSizesPage][i]; i++) {
+    uint8_t scale = PAGES[fontSizesPage][i];
+
+    // Label, e.g. "4x 24px", above the sample
+    display.setTextSize(1);
+    snprintf(text, sizeof(text), "%dx %dpx", scale, scale * capHeight);
+    display.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
+    display.setCursor(2 - x1, top - y1);
+    display.print(text);
+    top += h + 3;
+
+    // Sample, shortened if it is too wide for the screen
+    display.setTextSize(scale);
+    strcpy(text, "Aa12");
+    for (int len = strlen(text); len > 1; len--) {
+      text[len] = 0;
+      display.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
+      if (w <= 196) {
+        break;
+      }
+    }
+    display.setCursor(2 - x1, top - y1);
+    display.print(text);
+    top += h + 7;
+  }
+
+  display.setTextSize(1);
+  display.display(turnPage); // partial refresh when turning pages
+  guiState = FONT_SIZES_STATE;
 }
 
 void Watchy::showBuzz() {

@@ -92,6 +92,10 @@ public:
   void showMenu(byte menuIndex, bool partialRefresh);
   void showFastMenu(byte menuIndex);
   void showAbout();
+  void showFontSizes(bool turnPage = false); // menu "Font Sizes": the face font at each whole-number scale
+  // Font shown by "Font Sizes". Override to show your watch face's font; nullptr = the
+  // built-in Adafruit GFX font.
+  virtual const GFXfont *fontSizesFont() { return nullptr; }
   void showBuzz();
   void showAccelerometer();
   void showUpdateFW();
