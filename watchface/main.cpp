@@ -19,6 +19,7 @@
 #include "astro.h"
 #include "face_astro.h"
 #include "moon.h"
+#include "planets.h"
 #include "sun.h"
 #include <time.h>
 
@@ -66,6 +67,67 @@ public:
 
   // The "Font Sizes" menu shows our face font, Pocket Pixel
   const GFXfont *fontSizesFont() override { return &PocketPixel; }
+
+  // Menu item "Planets": where each planet is in the (tropical) zodiac right now
+  const char *extraMenuItem() override { return "Planets"; }
+
+  void showExtraMenuItem() override {
+    static const char *NAMES[] = {"Sun", "Moon", "Mercury", "Venus", "Mars",
+                                  "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"};
+    static const char *SIGNS[] = {"Ari", "Tau", "Gem", "Can", "Leo", "Vir",
+                                  "Lib", "Sco", "Sag", "Cap", "Aqu", "Pis"};
+    RTC.read(currentTime);
+    time_t now = nowUTC();
+
+    display.setFullWindow();
+    display.fillScreen(GxEPD_WHITE);
+    display.setFont(&PocketPixel);
+    display.setTextColor(GxEPD_BLACK);
+    display.setTextSize(2);
+
+    // Header: "Planets" and the time the positions are for
+    char text[16];
+    display.setCursor(PLANETS_NAME_X, 13);
+    display.print("Planets");
+    snprintf(text, sizeof(text), "%02d:%02d", currentTime.Hour, currentTime.Minute);
+    printRightAligned(text, 197, 13);
+
+    // One line per body: name, degree within the sign, sign, and R if retrograde
+    for (int b = 0; b < planets::COUNT; b++) {
+      int16_t baseline = 13 + 18 + 17 * b;
+      double lon = planets::longitude((planets::Body)b, now);
+      int sign = (int)(lon / 30.0) % 12;
+      int degree = (int)(lon - sign * 30.0); // whole degrees, as astrologers write them
+
+      display.setCursor(PLANETS_NAME_X, baseline);
+      display.print(NAMES[b]);
+      snprintf(text, sizeof(text), "%d", degree);
+      printRightAligned(text, PLANETS_DEGREE_RIGHT, baseline);
+      // Degree mark: Pocket Pixel has no degree sign, so draw a small ring
+      display.drawRect(PLANETS_DEGREE_RIGHT + 2, baseline - 12, 4, 4, GxEPD_BLACK);
+      display.setCursor(PLANETS_SIGN_X, baseline);
+      display.print(SIGNS[sign]);
+      if (planets::retrograde((planets::Body)b, now)) {
+        display.setCursor(PLANETS_RETRO_X, baseline);
+        display.print("R");
+      }
+    }
+
+    display.setTextSize(1);
+    display.display(false);
+    guiState = APP_STATE; // Back returns to the menu
+  }
+
+  static const int16_t PLANETS_NAME_X = 2, PLANETS_DEGREE_RIGHT = 98, PLANETS_SIGN_X = 110,
+                       PLANETS_RETRO_X = 150;
+
+  void printRightAligned(const char *text, int16_t right, int16_t baseline) {
+    int16_t x1, y1;
+    uint16_t w, h;
+    display.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
+    display.setCursor(right + 1 - (int16_t)w - x1, baseline);
+    display.print(text);
+  }
 
   // Low-battery mode: only redraw every 5 minutes (the clock then shows the time
   // to the last 5 minutes; the planetary-hour buzz may come up to 4 minutes late)

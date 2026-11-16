@@ -56,6 +56,13 @@ waiting for the screen). Sunrise and sunset are calculated once per day and kept
 survives deep sleep, as are the moon times. WiFi and Bluetooth are only ever on during a manual
 Sync Time or Setup WiFi, and are switched off afterwards.
 
+**Menu → Planets:** where the Sun, Moon and planets (Mercury to Pluto) are in the tropical
+zodiac right now: degree and sign (e.g. `24° Sco`), with **R** for retrograde. Back returns to
+the menu. The positions are from `planets.h` for Mercury to Pluto (orbital elements with the main
+Jupiter–Saturn–Uranus perturbations, after Paul Schlyter, with light-time, aberration and
+nutation corrections) and `astro.h` for the Sun and Moon. They are within 2.5 arcminutes of
+Swiss Ephemeris over 2025–2035, with no disagreement about signs or retrogrades.
+
 **Menu → Font Sizes:** shows the face font, Pocket Pixel, at every whole-number size from 1×
 (6 pixels tall) to 11× (66 pixels) over four pages. Up/Down turn the pages and Back returns to
 the menu. Useful when planning changes to the design: whole-number sizes are the only ones that
@@ -106,6 +113,7 @@ After flashing, use **Sync Time** in the watch's menu to set the time over WiFi.
 | Moon and sun longitude | `astro.h` | Meeus ch. 47 (main ELP-2000/82 terms) plus nutation; Meeus ch. 25 for the sun |
 | Moon sign | `astro.h` | Tropical: longitude ÷ 30° |
 | Moon phase | `astro.h` | The moon's angle from the sun, split into 8 equal parts centred on new, quarters and full |
+| Planet positions | `planets.h` | Schlyter's orbital elements and perturbations; geocentric, light-time, aberration, nutation |
 | Planetary hours | `astro.h` | Daylight and night each split into 12 from sunrise and sunset; Chaldean order from the day's ruler; the planetary day starts at sunrise |
 | Local times | `main.cpp` | The `TIMEZONE` rule through the C library (`setenv("TZ")`, `localtime_r`, `mktime`) |
 

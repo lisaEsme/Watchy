@@ -99,6 +99,11 @@ public:
   // Called on each minute tick before redrawing the watch face; return false to skip
   // this minute's redraw (e.g. to save battery). currentTime is already up to date.
   virtual bool updateFaceOnTick() { return true; }
+  // A watch face can add one item of its own at the end of the menu: return its name
+  // (nullptr = none) and draw it in showExtraMenuItem(). Back returns to the menu.
+  virtual const char *extraMenuItem() { return nullptr; }
+  virtual void showExtraMenuItem() {}
+  int menuLength() { return MENU_LENGTH + (extraMenuItem() ? 1 : 0); }
   void showBuzz();
   void showAccelerometer();
   void showUpdateFW();

@@ -84,8 +84,13 @@ and asset pipeline.
 - **This repository's `.gitattributes`** marks `*.png`, `*.ttf`, `*.bin` and `*.jpg` as binary.
   Keep it that way.
 
+- **Menus:** the library menu has "Font Sizes" (library) and, via the virtual
+  `extraMenuItem()` / `showExtraMenuItem()` hooks, our face's "Planets" page (degree, sign,
+  R for retrograde; whole degrees). With 8 items the menu spacing drops from 25 to 22 px.
+
 ### Ideas the user has mentioned but not asked for yet
 
 - Quiet hours for the planetary-hour buzz (e.g. none at night).
-- Sun sign, planet signs and retrogrades, using the unused icons in `watchface/design/icons/`.
+- Sun sign and planet signs on the face itself, using the unused icons in `watchface/design/icons/`
+  (the Planets menu page already lists them in text).
 - A "tomorrow" marker on moon times.

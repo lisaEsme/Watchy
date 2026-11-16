@@ -169,6 +169,9 @@ void Watchy::handleButtonPress() {
       case 6:
         showFontSizes();
         break;
+      case MENU_LENGTH: // the watch face's own item, if it has one
+        showExtraMenuItem();
+        break;
       default:
         break;
       }
@@ -196,7 +199,7 @@ void Watchy::handleButtonPress() {
     if (guiState == MAIN_MENU_STATE) { // increment menu index
       menuIndex--;
       if (menuIndex < 0) {
-        menuIndex = MENU_LENGTH - 1;
+        menuIndex = menuLength() - 1;
       }
       showMenu(menuIndex, true);
     } else if (guiState == FONT_SIZES_STATE) {
@@ -210,7 +213,7 @@ void Watchy::handleButtonPress() {
   else if (wakeupBit & DOWN_BTN_MASK) {
     if (guiState == MAIN_MENU_STATE) { // decrement menu index
       menuIndex++;
-      if (menuIndex > MENU_LENGTH - 1) {
+      if (menuIndex > menuLength() - 1) {
         menuIndex = 0;
       }
       showMenu(menuIndex, true);
@@ -262,6 +265,9 @@ void Watchy::handleButtonPress() {
           case 6:
             showFontSizes();
             break;
+          case MENU_LENGTH: // the watch face's own item, if it has one
+            showExtraMenuItem();
+            break;
           default:
             break;
           }
@@ -287,7 +293,7 @@ void Watchy::handleButtonPress() {
         if (guiState == MAIN_MENU_STATE) { // increment menu index
           menuIndex--;
           if (menuIndex < 0) {
-            menuIndex = MENU_LENGTH - 1;
+            menuIndex = menuLength() - 1;
           }
           showFastMenu(menuIndex);
         } else if (guiState == FONT_SIZES_STATE) {
@@ -298,7 +304,7 @@ void Watchy::handleButtonPress() {
         lastTimeout = millis();
         if (guiState == MAIN_MENU_STATE) { // decrement menu index
           menuIndex++;
-          if (menuIndex > MENU_LENGTH - 1) {
+          if (menuIndex > menuLength() - 1) {
             menuIndex = 0;
           }
           showFastMenu(menuIndex);
@@ -324,17 +330,25 @@ void Watchy::showMenu(byte menuIndex, bool partialRefresh) {
       "About Watchy", "Vibrate Motor", "Show Accelerometer",
       "Set Time",     "Setup WiFi",    /*"Update Firmware",*/
       "Sync NTP",     "Font Sizes"};
-  for (int i = 0; i < MENU_LENGTH; i++) {
-    yPos = MENU_HEIGHT + (MENU_HEIGHT * i);
+  // With a watch face's extra item there are 8 lines, so they move closer together
+  int itemCount = menuLength();
+  int itemHeight = itemCount > MENU_LENGTH ? 22 : MENU_HEIGHT;
+  for (int i = 0; i < itemCount; i++) {
+    const char *item = i < MENU_LENGTH ? menuItems[i] : extraMenuItem();
+    yPos = itemHeight + (itemHeight * i);
     display.setCursor(0, yPos);
     if (i == menuIndex) {
-      display.getTextBounds(menuItems[i], 0, yPos, &x1, &y1, &w, &h);
-      display.fillRect(x1 - 1, y1 - 10, 200, h + 15, GxEPD_WHITE);
+      display.getTextBounds(item, 0, yPos, &x1, &y1, &w, &h);
+      if (itemHeight == MENU_HEIGHT) {
+        display.fillRect(x1 - 1, y1 - 10, 200, h + 15, GxEPD_WHITE);
+      } else {
+        display.fillRect(x1 - 1, y1 - 5, 200, h + 10, GxEPD_WHITE);
+      }
       display.setTextColor(GxEPD_BLACK);
-      display.println(menuItems[i]);
+      display.println(item);
     } else {
       display.setTextColor(GxEPD_WHITE);
-      display.println(menuItems[i]);
+      display.println(item);
     }
   }
 
@@ -357,17 +371,25 @@ void Watchy::showFastMenu(byte menuIndex) {
       "About Watchy", "Vibrate Motor", "Show Accelerometer",
       "Set Time",     "Setup WiFi",    /*"Update Firmware",*/
       "Sync NTP",     "Font Sizes"};
-  for (int i = 0; i < MENU_LENGTH; i++) {
-    yPos = MENU_HEIGHT + (MENU_HEIGHT * i);
+  // With a watch face's extra item there are 8 lines, so they move closer together
+  int itemCount = menuLength();
+  int itemHeight = itemCount > MENU_LENGTH ? 22 : MENU_HEIGHT;
+  for (int i = 0; i < itemCount; i++) {
+    const char *item = i < MENU_LENGTH ? menuItems[i] : extraMenuItem();
+    yPos = itemHeight + (itemHeight * i);
     display.setCursor(0, yPos);
     if (i == menuIndex) {
-      display.getTextBounds(menuItems[i], 0, yPos, &x1, &y1, &w, &h);
-      display.fillRect(x1 - 1, y1 - 10, 200, h + 15, GxEPD_WHITE);
+      display.getTextBounds(item, 0, yPos, &x1, &y1, &w, &h);
+      if (itemHeight == MENU_HEIGHT) {
+        display.fillRect(x1 - 1, y1 - 10, 200, h + 15, GxEPD_WHITE);
+      } else {
+        display.fillRect(x1 - 1, y1 - 5, 200, h + 10, GxEPD_WHITE);
+      }
       display.setTextColor(GxEPD_BLACK);
-      display.println(menuItems[i]);
+      display.println(item);
     } else {
       display.setTextColor(GxEPD_WHITE);
-      display.println(menuItems[i]);
+      display.println(item);
     }
   }
 
