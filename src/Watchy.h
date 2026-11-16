@@ -96,6 +96,9 @@ public:
   // Font shown by "Font Sizes". Override to show your watch face's font; nullptr = the
   // built-in Adafruit GFX font.
   virtual const GFXfont *fontSizesFont() { return nullptr; }
+  // Called on each minute tick before redrawing the watch face; return false to skip
+  // this minute's redraw (e.g. to save battery). currentTime is already up to date.
+  virtual bool updateFaceOnTick() { return true; }
   void showBuzz();
   void showAccelerometer();
   void showUpdateFW();

@@ -42,6 +42,20 @@ At sunrise the face switches back to the day face.
 
 **Not used:** the default on-the-hour buzz is switched off (`vibrateOClock = false`).
 
+**Battery:** a small battery icon in the bottom-right corner with 0–4 bars. The voltage is
+averaged over 16 readings and turned into a percentage with a Li-Po discharge table.
+The bars only change once the charge is 3% past a boundary, so they don't flicker.
+Below 3.60 V the watch goes into **low-battery mode**: "LOW" appears beside the icon and the
+face only redraws every 5 minutes, so the time shown can be up to 4 minutes behind and the
+planetary-hour buzz can come up to 4 minutes late. It leaves low-battery mode above 3.70 V.
+The voltage table is a typical Li-Po curve; logging one full discharge of this watch would
+calibrate it.
+
+**Power saving:** the processor runs at 80 MHz instead of 240 MHz (most of each wake is spent
+waiting for the screen). Sunrise and sunset are calculated once per day and kept in memory that
+survives deep sleep, as are the moon times. WiFi and Bluetooth are only ever on during a manual
+Sync Time or Setup WiFi, and are switched off afterwards.
+
 **Menu → Font Sizes:** shows the face font, Pocket Pixel, at every whole-number size from 1×
 (6 pixels tall) to 11× (66 pixels) over four pages. Up/Down turn the pages and Back returns to
 the menu. Useful when planning changes to the design: whole-number sizes are the only ones that

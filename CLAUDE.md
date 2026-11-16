@@ -55,6 +55,10 @@ and asset pipeline.
 - **Buzzing:** no buzz on the clock hour (`vibrateOClock = false`). One very slight 40 ms buzz
   when a planetary hour begins.
 - **Time sync:** manual (Sync Time) is fine; no automatic nightly WiFi sync.
+- **Battery:** bottom-right battery icon (4 bars, hysteresis), low-battery mode below 3.60 V
+  (redraw every 5 min, "LOW"). CPU at 80 MHz. Battery-saving ideas the user has seen but that
+  clash with the night features (sleeping at night, refreshing less often all the time,
+  wrist-tilt wake) are not implemented; ask before adding them.
 - **Night mode** (sunset to sunrise): the moon icon on the arc shows progress from sunset to
   sunrise. The lines read Moonrise / Sunrise / Moonset. Moonrise keeps the actual rise time while
   the moon is still up after midnight, and moves to the new date's moonrise only once it has set.
@@ -68,7 +72,8 @@ and asset pipeline.
   edit those by hand.
 - **Before handing over firmware:** render a preview with `python3 tools/preview_watchface.py`
   and compare it with `design/face.png`. Outside the live areas it should differ by zero pixels
-  (one pixel near the sun is expected, from the cleaner `sun.png`).
+  (expected exceptions: one pixel near the sun, from the cleaner `sun.png`, and the battery icon
+  in the bottom-right corner, which isn't in the design).
 - **Astronomy changes:** test the header-only code on the host
   (`g++ -I watchface test.cpp`, using `timegm` in place of TimeLib's `makeTime`), and compare
   with independent references: `astral`, `ephem` (PyEphem) and Swiss Ephemeris (`pyswisseph`

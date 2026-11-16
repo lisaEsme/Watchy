@@ -12,6 +12,7 @@ Run from the repository root:
   Astrology icons: --astro PHASE,PLANET,SIGN (moon phase 0-7 with 4 = full; planetary hour
   planet 0-6 in Chaldean order Saturn, Jupiter, Mars, Sun, Venus, Mercury, Moon; moon sign
   0-11 with 0 = Aries). Default 4,1,11 as in the design.
+  Battery: --battery BARS[,low] (0-4 bars; "low" adds the LOW warning). Default 4.
 """
 import re
 import sys
@@ -120,8 +121,21 @@ def draw_astro(img, phase, planet, sign):
     draw_bitmap(img, num("MOON_SIGN_X"), num("MOON_SIGN_Y"), (s, s, table("zodiac_icons")[sign]))
 
 
+def draw_battery(img, cv, bars, low):
+    """WatchFace::drawBattery(): outline, terminal, bars, and "LOW" in low-battery mode."""
+    x, y = 176, 187
+    d = ImageDraw.Draw(img)
+    d.rectangle((x, y, x + 18, y + 9), outline=0)
+    d.rectangle((x + 19, y + 3, x + 20, y + 6), fill=0)
+    for i in range(bars):
+        d.rectangle((x + 2 + i * 4, y + 2, x + 4 + i * 4, y + 7), fill=0)
+    if low:
+        x1, w = cv.bounds("LOW", 2, 2)
+        cv.print("LOW", x - 4 - w - x1, y + 10, 2, 2)
+
+
 def render(time_text, date_text, steps_text, line1="07:20", line2="16:07", step="0", line3="--:--", night=False,
-           astro=(4, 1, 11)):
+           astro=(4, 1, 11), battery=(4, False)):
     """Day: line1/line2 are sunrise/sunset and step places the sun.
     Night: line1/line2/line3 are moonrise/next sunrise/moonset and step places the moon
     (how far from sunset to sunrise)."""
@@ -142,6 +156,7 @@ def render(time_text, date_text, steps_text, line1="07:20", line2="16:07", step=
     if night:
         cv.print(line3, L["MOONSET_LEFT"], L["MOONSET_BOTTOM"] + 1, 2, 2, tight=True)
     draw_astro(img, *astro)
+    draw_battery(img, cv, *battery)
     sun, moon, (mx, my), pts = load_icons()
     if step != "-":
         x, y = pts[int(step)]
@@ -162,13 +177,19 @@ if __name__ == "__main__":
     night = "--night" in args
     if night:
         args.remove("--night")
+    battery = (4, False)
+    if "--battery" in args:  # e.g. --battery 3 or --battery 1,low
+        i = args.index("--battery")
+        v = args[i + 1].split(",")
+        battery = (int(v[0]), len(v) > 1 and v[1] == "low")
+        del args[i:i + 2]
     astro = (4, 1, 11)  # the design's: full moon, Jupiter's hour, moon in Pisces
     if "--astro" in args:
         i = args.index("--astro")
         astro = tuple(int(v) for v in args[i + 1].split(","))
         del args[i:i + 2]
     out, time_text, date_text, steps_text, *rest = args
-    img = render(time_text, date_text, steps_text, *rest, night=night, astro=astro)
+    img = render(time_text, date_text, steps_text, *rest, night=night, astro=astro, battery=battery)
     if scale > 1:
         img = img.resize((200 * scale, 200 * scale), Image.NEAREST)
     img.save(out)

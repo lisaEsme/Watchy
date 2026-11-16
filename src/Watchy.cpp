@@ -46,7 +46,9 @@ void Watchy::init(String datetime) {
     RTC.read(currentTime);
     switch (guiState) {
     case WATCHFACE_STATE:
-      showWatchFace(true); // partial updates on tick
+      if (updateFaceOnTick()) {
+        showWatchFace(true); // partial updates on tick
+      }
       if (settings.vibrateOClock) {
         if (currentTime.Minute == 0) {
           // The RTC wakes us up once per minute

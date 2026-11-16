@@ -59,12 +59,19 @@ public:
 
     drawSun();
     drawAstro();
+    drawBattery();
 
     display.setTextSize(1); // the menus share this display, so leave it at normal size
   }
 
   // The "Font Sizes" menu shows our face font, Pocket Pixel
   const GFXfont *fontSizesFont() override { return &PocketPixel; }
+
+  // Low-battery mode: only redraw every 5 minutes (the clock then shows the time
+  // to the last 5 minutes; the planetary-hour buzz may come up to 4 minutes late)
+  bool updateFaceOnTick() override {
+    return !lowBattery || currentTime.Minute % 5 == 0;
+  }
 
 private:
   // Moon phase, moon sign and planetary hour (see astro.h)
@@ -209,16 +216,108 @@ private:
 
   // Sunrise and sunset (UTC timestamps, to the nearest minute) on the UTC date that
   // starts at midnightUTC. Returns false if the sun doesn't rise and set that day.
+  // Results are kept for the last few days used (yesterday, today, tomorrow), in
+  // memory that survives deep sleep, so each is only calculated once.
   bool sunTimes(time_t midnightUTC, float lat, float lon, time_t &rise, time_t &set) {
+    for (int i = 0; i < SUN_CACHE_DAYS; i++) {
+      if (sunCache[i].midnightUTC == midnightUTC) {
+        rise = sunCache[i].rise;
+        set = sunCache[i].set;
+        return sunCache[i].rises;
+      }
+    }
     tmElements_t day;
     breakTime(midnightUTC, day);
     SunTimes sun = calculateSunTimes(day.Year + 1970, day.Month, day.Day, lat, lon);
-    if (!sun.rises) {
-      return false;
+    SunCacheEntry &e = sunCache[sunCacheNext];
+    sunCacheNext = (sunCacheNext + 1) % SUN_CACHE_DAYS;
+    e.midnightUTC = midnightUTC;
+    e.rises = sun.rises;
+    e.rise = midnightUTC + (time_t)lroundf(sun.sunriseUTC) * 60;
+    e.set = midnightUTC + (time_t)lroundf(sun.sunsetUTC) * 60;
+    rise = e.rise;
+    set = e.set;
+    return e.rises;
+  }
+
+  struct SunCacheEntry {
+    time_t midnightUTC;
+    time_t rise, set;
+    bool rises;
+  };
+  static const int SUN_CACHE_DAYS = 4;
+  static RTC_DATA_ATTR SunCacheEntry sunCache[SUN_CACHE_DAYS];
+  static RTC_DATA_ATTR int sunCacheNext;
+
+  // ---- Battery ----------------------------------------------------------------
+
+  // Bottom-right corner, empty in the design: a battery outline with 4 bars, and
+  // "LOW" beside it in low-battery mode
+  static const int16_t BATT_X = 176, BATT_Y = 187; // top-left of the battery body
+  static RTC_DATA_ATTR int8_t batteryBars;         // bars shown (0-4), -1 = not read yet
+  static RTC_DATA_ATTR bool lowBattery;
+
+  // Average of 16 readings (each a few microseconds), in volts
+  float readBatteryVoltage() {
+    float sum = 0;
+    for (int i = 0; i < 16; i++) {
+      sum += getBatteryVoltage();
     }
-    rise = midnightUTC + (time_t)lroundf(sun.sunriseUTC) * 60;
-    set = midnightUTC + (time_t)lroundf(sun.sunsetUTC) * 60;
-    return true;
+    return sum / 16;
+  }
+
+  // Li-Po charge from voltage. The curve isn't a straight line, so interpolate in a
+  // table (to be calibrated by logging one full discharge of this watch's battery).
+  static int batteryPercent(float v) {
+    static const float VOLTS[] = {4.15, 4.05, 3.95, 3.87, 3.80, 3.75, 3.70, 3.65, 3.55, 3.40};
+    static const int PERCENT[] = {100, 90, 80, 70, 60, 50, 40, 25, 10, 0};
+    if (v >= VOLTS[0]) return 100;
+    for (int i = 1; i < 10; i++) {
+      if (v >= VOLTS[i]) {
+        float f = (v - VOLTS[i]) / (VOLTS[i - 1] - VOLTS[i]);
+        return PERCENT[i] + (int)lroundf(f * (PERCENT[i - 1] - PERCENT[i]));
+      }
+    }
+    return 0;
+  }
+
+  void drawBattery() {
+    float v = readBatteryVoltage();
+    int pct = batteryPercent(v);
+
+    // Bars: 4 above 75%, 3 above 50%, 2 above 25%, 1 above 10%. To stop the icon
+    // flickering between two bars, it only changes once the charge is 3% past the
+    // boundary. Above 4.15 V (charging on USB, or full) always show 4 bars.
+    static const int BAR_FROM[] = {0, 10, 25, 50, 75}; // percent at which N bars start
+    if (batteryBars < 0 || v > 4.15) {
+      batteryBars = pct > 75 ? 4 : pct > 50 ? 3 : pct > 25 ? 2 : pct > 10 ? 1 : 0;
+    } else {
+      while (batteryBars < 4 && pct >= BAR_FROM[batteryBars + 1] + 3) batteryBars++;
+      while (batteryBars > 0 && pct < BAR_FROM[batteryBars] - 3) batteryBars--;
+    }
+
+    // Low-battery mode below 3.60 V; leave it again above 3.70 V (the voltage
+    // recovers a little when the watch is idle, so a gap stops it switching back and forth)
+    if (v < 3.60f) {
+      lowBattery = true;
+    } else if (v > 3.70f) {
+      lowBattery = false;
+    }
+
+    // Body 19x10 with a 2x4 terminal on the right; bars 3x6 inside
+    display.drawRect(BATT_X, BATT_Y, 19, 10, GxEPD_BLACK);
+    display.fillRect(BATT_X + 19, BATT_Y + 3, 2, 4, GxEPD_BLACK);
+    for (int i = 0; i < batteryBars; i++) {
+      display.fillRect(BATT_X + 2 + i * 4, BATT_Y + 2, 3, 6, GxEPD_BLACK);
+    }
+    if (lowBattery) {
+      display.setTextSize(2);
+      int16_t x1, y1;
+      uint16_t w, h;
+      display.getTextBounds("LOW", 0, 0, &x1, &y1, &w, &h);
+      display.setCursor(BATT_X - 4 - (int16_t)w - x1, BATT_Y + 10);
+      display.print("LOW");
+    }
   }
 
   time_t utcMidnight(int year, int month, int day) {
@@ -351,6 +450,10 @@ private:
 };
 
 RTC_DATA_ATTR time_t WatchFace::lastPlanetaryHourStart = 0;
+RTC_DATA_ATTR WatchFace::SunCacheEntry WatchFace::sunCache[WatchFace::SUN_CACHE_DAYS] = {};
+RTC_DATA_ATTR int WatchFace::sunCacheNext = 0;
+RTC_DATA_ATTR int8_t WatchFace::batteryBars = -1;
+RTC_DATA_ATTR bool WatchFace::lowBattery = false;
 RTC_DATA_ATTR long WatchFace::moonForDate = 0;
 RTC_DATA_ATTR time_t WatchFace::moonCheckedAt = 0;
 RTC_DATA_ATTR bool WatchFace::moonWasUp = false;
@@ -360,6 +463,9 @@ RTC_DATA_ATTR time_t WatchFace::moonSetUTC = 0;
 WatchFace watchy(settings);
 
 void setup() {
+  // Run the processor at 80 MHz instead of 240 MHz: each wake-up is mostly spent
+  // waiting for the screen, and a slower processor uses less power while it waits
+  setCpuFrequencyMhz(80);
   watchy.init();
 }
 
