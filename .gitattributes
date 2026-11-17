@@ -1,1 +1,6 @@
 * text eol=lf
+# Binary files: never convert line endings (images, fonts, firmware)
+*.png binary
+*.jpg binary
+*.ttf binary
+*.bin binary

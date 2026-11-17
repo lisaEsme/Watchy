@@ -12,6 +12,7 @@ GxEPD2_BW<WatchyDisplay, WatchyDisplay::HEIGHT> Watchy::display(
 
 RTC_DATA_ATTR int guiState;
 RTC_DATA_ATTR int menuIndex;
+RTC_DATA_ATTR int fontSizesPage; // page of the "Font Sizes" screen
 RTC_DATA_ATTR BMA423 sensor;
 RTC_DATA_ATTR bool WIFI_CONFIGURED;
 RTC_DATA_ATTR bool BLE_CONFIGURED;
@@ -45,7 +46,9 @@ void Watchy::init(String datetime) {
     RTC.read(currentTime);
     switch (guiState) {
     case WATCHFACE_STATE:
-      showWatchFace(true); // partial updates on tick
+      if (updateFaceOnTick()) {
+        showWatchFace(true); // partial updates on tick
+      }
       if (settings.vibrateOClock) {
         if (currentTime.Minute == 0) {
           // The RTC wakes us up once per minute
@@ -163,6 +166,12 @@ void Watchy::handleButtonPress() {
       case 5:
         showSyncNTP();
         break;
+      case 6:
+        showFontSizes();
+        break;
+      case MENU_LENGTH: // the watch face's own item, if it has one
+        showExtraMenuItem();
+        break;
       default:
         break;
       }
@@ -179,6 +188,8 @@ void Watchy::handleButtonPress() {
       showMenu(menuIndex, false); // exit to menu if already in app
     } else if (guiState == FW_UPDATE_STATE) {
       showMenu(menuIndex, false); // exit to menu if already in app
+    } else if (guiState == FONT_SIZES_STATE) {
+      showMenu(menuIndex, false); // exit to menu from the font sizes pages
     } else if (guiState == WATCHFACE_STATE) {
       return;
     }
@@ -188,9 +199,12 @@ void Watchy::handleButtonPress() {
     if (guiState == MAIN_MENU_STATE) { // increment menu index
       menuIndex--;
       if (menuIndex < 0) {
-        menuIndex = MENU_LENGTH - 1;
+        menuIndex = menuLength() - 1;
       }
       showMenu(menuIndex, true);
+    } else if (guiState == FONT_SIZES_STATE) {
+      fontSizesPage--;
+      showFontSizes(true);
     } else if (guiState == WATCHFACE_STATE) {
       return;
     }
@@ -199,10 +213,13 @@ void Watchy::handleButtonPress() {
   else if (wakeupBit & DOWN_BTN_MASK) {
     if (guiState == MAIN_MENU_STATE) { // decrement menu index
       menuIndex++;
-      if (menuIndex > MENU_LENGTH - 1) {
+      if (menuIndex > menuLength() - 1) {
         menuIndex = 0;
       }
       showMenu(menuIndex, true);
+    } else if (guiState == FONT_SIZES_STATE) {
+      fontSizesPage++;
+      showFontSizes(true);
     } else if (guiState == WATCHFACE_STATE) {
       return;
     }
@@ -245,6 +262,12 @@ void Watchy::handleButtonPress() {
           case 5:
             showSyncNTP();
             break;
+          case 6:
+            showFontSizes();
+            break;
+          case MENU_LENGTH: // the watch face's own item, if it has one
+            showExtraMenuItem();
+            break;
           default:
             break;
           }
@@ -262,24 +285,32 @@ void Watchy::handleButtonPress() {
           showMenu(menuIndex, false); // exit to menu if already in app
         } else if (guiState == FW_UPDATE_STATE) {
           showMenu(menuIndex, false); // exit to menu if already in app
+        } else if (guiState == FONT_SIZES_STATE) {
+          showMenu(menuIndex, false); // exit to menu from the font sizes pages
         }
       } else if (digitalRead(UP_BTN_PIN) == ACTIVE_LOW) {
         lastTimeout = millis();
         if (guiState == MAIN_MENU_STATE) { // increment menu index
           menuIndex--;
           if (menuIndex < 0) {
-            menuIndex = MENU_LENGTH - 1;
+            menuIndex = menuLength() - 1;
           }
           showFastMenu(menuIndex);
+        } else if (guiState == FONT_SIZES_STATE) {
+          fontSizesPage--;
+          showFontSizes(true);
         }
       } else if (digitalRead(DOWN_BTN_PIN) == ACTIVE_LOW) {
         lastTimeout = millis();
         if (guiState == MAIN_MENU_STATE) { // decrement menu index
           menuIndex++;
-          if (menuIndex > MENU_LENGTH - 1) {
+          if (menuIndex > menuLength() - 1) {
             menuIndex = 0;
           }
           showFastMenu(menuIndex);
+        } else if (guiState == FONT_SIZES_STATE) {
+          fontSizesPage++;
+          showFontSizes(true);
         }
       }
     }
@@ -298,18 +329,26 @@ void Watchy::showMenu(byte menuIndex, bool partialRefresh) {
   const char *menuItems[] = {
       "About Watchy", "Vibrate Motor", "Show Accelerometer",
       "Set Time",     "Setup WiFi",    /*"Update Firmware",*/
-      "Sync NTP"};
-  for (int i = 0; i < MENU_LENGTH; i++) {
-    yPos = MENU_HEIGHT + (MENU_HEIGHT * i);
+      "Sync NTP",     "Font Sizes"};
+  // With a watch face's extra item there are 8 lines, so they move closer together
+  int itemCount = menuLength();
+  int itemHeight = itemCount > MENU_LENGTH ? 22 : MENU_HEIGHT;
+  for (int i = 0; i < itemCount; i++) {
+    const char *item = i < MENU_LENGTH ? menuItems[i] : extraMenuItem();
+    yPos = itemHeight + (itemHeight * i);
     display.setCursor(0, yPos);
     if (i == menuIndex) {
-      display.getTextBounds(menuItems[i], 0, yPos, &x1, &y1, &w, &h);
-      display.fillRect(x1 - 1, y1 - 10, 200, h + 15, GxEPD_WHITE);
+      display.getTextBounds(item, 0, yPos, &x1, &y1, &w, &h);
+      if (itemHeight == MENU_HEIGHT) {
+        display.fillRect(x1 - 1, y1 - 10, 200, h + 15, GxEPD_WHITE);
+      } else {
+        display.fillRect(x1 - 1, y1 - 5, 200, h + 10, GxEPD_WHITE);
+      }
       display.setTextColor(GxEPD_BLACK);
-      display.println(menuItems[i]);
+      display.println(item);
     } else {
       display.setTextColor(GxEPD_WHITE);
-      display.println(menuItems[i]);
+      display.println(item);
     }
   }
 
@@ -331,18 +370,26 @@ void Watchy::showFastMenu(byte menuIndex) {
   const char *menuItems[] = {
       "About Watchy", "Vibrate Motor", "Show Accelerometer",
       "Set Time",     "Setup WiFi",    /*"Update Firmware",*/
-      "Sync NTP"};
-  for (int i = 0; i < MENU_LENGTH; i++) {
-    yPos = MENU_HEIGHT + (MENU_HEIGHT * i);
+      "Sync NTP",     "Font Sizes"};
+  // With a watch face's extra item there are 8 lines, so they move closer together
+  int itemCount = menuLength();
+  int itemHeight = itemCount > MENU_LENGTH ? 22 : MENU_HEIGHT;
+  for (int i = 0; i < itemCount; i++) {
+    const char *item = i < MENU_LENGTH ? menuItems[i] : extraMenuItem();
+    yPos = itemHeight + (itemHeight * i);
     display.setCursor(0, yPos);
     if (i == menuIndex) {
-      display.getTextBounds(menuItems[i], 0, yPos, &x1, &y1, &w, &h);
-      display.fillRect(x1 - 1, y1 - 10, 200, h + 15, GxEPD_WHITE);
+      display.getTextBounds(item, 0, yPos, &x1, &y1, &w, &h);
+      if (itemHeight == MENU_HEIGHT) {
+        display.fillRect(x1 - 1, y1 - 10, 200, h + 15, GxEPD_WHITE);
+      } else {
+        display.fillRect(x1 - 1, y1 - 5, 200, h + 10, GxEPD_WHITE);
+      }
       display.setTextColor(GxEPD_BLACK);
-      display.println(menuItems[i]);
+      display.println(item);
     } else {
       display.setTextColor(GxEPD_WHITE);
-      display.println(menuItems[i]);
+      display.println(item);
     }
   }
 
@@ -398,6 +445,78 @@ void Watchy::showAbout() {
   display.display(false); // full refresh
 
   guiState = APP_STATE;
+}
+
+// "Font Sizes" menu: the watch face's font (fontSizesFont()) at each whole-number scale,
+// from 1x up to 11x, over several pages. Up/Down turn the pages, Back returns to the menu.
+// Whole-number scales are the only ones that stay sharp with a pixel font.
+// turnPage: false when opened from the menu (starts at page 1), true for Up/Down.
+void Watchy::showFontSizes(bool turnPage) {
+  static const uint8_t PAGES[][4] = {{1, 2, 3, 4}, {5, 6, 7, 0}, {8, 9, 0, 0}, {10, 11, 0, 0}};
+  const int pageCount = sizeof(PAGES) / sizeof(PAGES[0]);
+  if (!turnPage) {
+    fontSizesPage = 0;
+  }
+  fontSizesPage = ((fontSizesPage % pageCount) + pageCount) % pageCount;
+
+  display.setFullWindow();
+  display.fillScreen(GxEPD_WHITE);
+  display.setFont(fontSizesFont());
+  display.setTextColor(GxEPD_BLACK);
+  display.setTextWrap(false);
+
+  int16_t x1, y1;
+  uint16_t w, h;
+  char text[32];
+
+  // Height of a capital letter at 1x, to label each size in pixels
+  display.setTextSize(1);
+  display.getTextBounds("A", 0, 0, &x1, &y1, &w, &h);
+  uint16_t capHeight = h;
+
+  // Header, e.g. "Sizes 2/4"
+  display.setTextSize(2);
+  snprintf(text, sizeof(text), "Sizes %d/%d", fontSizesPage + 1, pageCount);
+  display.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
+  display.setCursor(2 - x1, 2 - y1);
+  display.print(text);
+  int16_t top = 2 + h + 8;
+
+  for (int i = 0; i < 4 && PAGES[fontSizesPage][i]; i++) {
+    uint8_t scale = PAGES[fontSizesPage][i];
+
+    // Label, e.g. "4x 24px", above the sample
+    display.setTextSize(1);
+    snprintf(text, sizeof(text), "%dx %dpx", scale, scale * capHeight);
+    display.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
+    display.setCursor(2 - x1, top - y1);
+    display.print(text);
+    top += h + 3;
+
+    // Sample, shortened if it is too wide for the screen
+    display.setTextSize(scale);
+    strcpy(text, "Aa12");
+    for (int len = strlen(text); len > 1; len--) {
+      text[len] = 0;
+      display.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
+      if (w <= 196) {
+        break;
+      }
+    }
+    display.setCursor(2 - x1, top - y1);
+    display.print(text);
+    top += h + 7;
+  }
+
+  display.setTextSize(1);
+  // Full refresh every time: these pages are mostly large solid letters, which a
+  // partial refresh leaves ghosts of
+  display.display(false);
+  // Switch off the display's high voltage straight away. The page stays up while the
+  // watch waits a few seconds for the next button, and with the voltage left on, the
+  // large black areas fade towards white.
+  display.powerOff();
+  guiState = FONT_SIZES_STATE;
 }
 
 void Watchy::showBuzz() {
@@ -956,9 +1075,13 @@ void Watchy::_configModeCallback(WiFiManager *myWiFiManager) {
 }
 
 bool Watchy::connectWiFi() {
-  if (WL_CONNECT_FAILED ==
-      WiFi.begin()) { // WiFi not setup, you can also use hard coded credentials
-                      // with WiFi.begin(SSID,PASS);
+  // Use the network from settings if one is given, otherwise the one saved via
+  // "Setup WiFi"
+  wl_status_t beginResult =
+      settings.wifiSSID.length() > 0
+          ? WiFi.begin(settings.wifiSSID.c_str(), settings.wifiPassword.c_str())
+          : WiFi.begin();
+  if (WL_CONNECT_FAILED == beginResult) { // WiFi not set up
     WIFI_CONFIGURED = false;
   } else {
     if (WL_CONNECTED ==
@@ -1142,13 +1265,33 @@ bool Watchy::syncNTP(long gmt, String ntpServer) {
   // NTP sync - call after connecting to
   // WiFi and remember to turn it back off
   WiFiUDP ntpUDP;
-  NTPClient timeClient(ntpUDP, ntpServer.c_str(), gmt);
+  bool useTimezone = settings.timezone.length() > 0;
+  // With a time zone rule, fetch UTC and convert below; otherwise apply gmt
+  NTPClient timeClient(ntpUDP, ntpServer.c_str(), useTimezone ? 0 : gmt);
   timeClient.begin();
   if (!timeClient.forceUpdate()) {
     return false; // NTP sync failed
   }
+  time_t now = (time_t)timeClient.getEpochTime();
   tmElements_t tm;
-  breakTime((time_t)timeClient.getEpochTime(), tm);
+  if (useTimezone) {
+    // Convert UTC to local time using the rule, including daylight saving
+    setenv("TZ", settings.timezone.c_str(), 1);
+    tzset();
+    struct tm local;
+    localtime_r(&now, &local);
+    tm.Second = local.tm_sec;
+    tm.Minute = local.tm_min;
+    tm.Hour   = local.tm_hour;
+    tm.Wday   = local.tm_wday + 1; // TimeLib: 1 = Sunday
+    tm.Day    = local.tm_mday;
+    tm.Month  = local.tm_mon + 1;  // TimeLib: 1 = January
+    tm.Year   = local.tm_year + 1900 - 1970; // TimeLib: years since 1970
+    // Remember the offset in effect now (e.g. 0 for GMT, 3600 for BST)
+    gmtOffset = (long)(makeTime(tm) - now);
+  } else {
+    breakTime(now, tm);
+  }
   RTC.set(tm);
   return true;
 }

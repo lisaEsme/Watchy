@@ -60,6 +60,13 @@ typedef struct watchySettings {
   int gmtOffset;
   //
   bool vibrateOClock;
+  // WiFi network to join. Leave empty to use the network saved via "Setup WiFi".
+  String wifiSSID;
+  String wifiPassword;
+  // POSIX time zone rule, e.g. "GMT0BST,M3.5.0/1,M10.5.0" for the UK.
+  // When set, time syncs apply daylight saving automatically and gmtOffset is
+  // only used until the first sync. Leave empty to use the fixed gmtOffset.
+  String timezone;
 } watchySettings;
 
 class Watchy {
@@ -85,6 +92,18 @@ public:
   void showMenu(byte menuIndex, bool partialRefresh);
   void showFastMenu(byte menuIndex);
   void showAbout();
+  void showFontSizes(bool turnPage = false); // menu "Font Sizes": the face font at each whole-number scale
+  // Font shown by "Font Sizes". Override to show your watch face's font; nullptr = the
+  // built-in Adafruit GFX font.
+  virtual const GFXfont *fontSizesFont() { return nullptr; }
+  // Called on each minute tick before redrawing the watch face; return false to skip
+  // this minute's redraw (e.g. to save battery). currentTime is already up to date.
+  virtual bool updateFaceOnTick() { return true; }
+  // A watch face can add one item of its own at the end of the menu: return its name
+  // (nullptr = none) and draw it in showExtraMenuItem(). Back returns to the menu.
+  virtual const char *extraMenuItem() { return nullptr; }
+  virtual void showExtraMenuItem() {}
+  int menuLength() { return MENU_LENGTH + (extraMenuItem() ? 1 : 0); }
   void showBuzz();
   void showAccelerometer();
   void showUpdateFW();

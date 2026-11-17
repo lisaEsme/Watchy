@@ -1,0 +1,10 @@
+{
+  "name": "Watchy",
+  "description": "PlatformIO entry for the Watchy library in ../src. Deliberately lists no dependencies: the pinned versions in platformio.ini are used instead of the unpinned ones in the top-level library.json.",
+  "frameworks": "arduino",
+  "platforms": "espressif32",
+  "build": {
+    "srcDir": "../src",
+    "includeDir": "../src"
+  }
+}
