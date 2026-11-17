@@ -450,6 +450,7 @@ void Watchy::showAbout() {
 // "Font Sizes" menu: the watch face's font (fontSizesFont()) at each whole-number scale,
 // from 1x up to 11x, over several pages. Up/Down turn the pages, Back returns to the menu.
 // Whole-number scales are the only ones that stay sharp with a pixel font.
+// turnPage: false when opened from the menu (starts at page 1), true for Up/Down.
 void Watchy::showFontSizes(bool turnPage) {
   static const uint8_t PAGES[][4] = {{1, 2, 3, 4}, {5, 6, 7, 0}, {8, 9, 0, 0}, {10, 11, 0, 0}};
   const int pageCount = sizeof(PAGES) / sizeof(PAGES[0]);
@@ -508,7 +509,13 @@ void Watchy::showFontSizes(bool turnPage) {
   }
 
   display.setTextSize(1);
-  display.display(turnPage); // partial refresh when turning pages
+  // Full refresh every time: these pages are mostly large solid letters, which a
+  // partial refresh leaves ghosts of
+  display.display(false);
+  // Switch off the display's high voltage straight away. The page stays up while the
+  // watch waits a few seconds for the next button, and with the voltage left on, the
+  // large black areas fade towards white.
+  display.powerOff();
   guiState = FONT_SIZES_STATE;
 }
 

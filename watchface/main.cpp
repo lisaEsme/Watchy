@@ -115,6 +115,7 @@ public:
 
     display.setTextSize(1);
     display.display(false);
+    display.powerOff(); // don't leave the high voltage on while the page waits (see showFontSizes)
     guiState = APP_STATE; // Back returns to the menu
   }
 
