@@ -88,6 +88,12 @@ and asset pipeline.
   `extraMenuItem()` / `showExtraMenuItem()` hooks, our face's "Planets" page (degree, sign,
   R for retrograde; whole degrees). With 8 items the menu spacing drops from 25 to 22 px.
 
+- **Screens that stay up while the watch waits for a button** (menu pages): call
+  `display.powerOff()` straight after `display.display(...)`. The driver leaves the panel's
+  high voltage on after a refresh, and large black areas then fade to white within seconds
+  (seen on the watch, fixed for Font Sizes and Planets). Use full refreshes for pages with
+  large solid shapes; partial refreshes leave ghosts.
+
 ### Ideas the user has mentioned but not asked for yet
 
 - Quiet hours for the planetary-hour buzz (e.g. none at night).
