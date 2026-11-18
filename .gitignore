@@ -76,5 +76,9 @@ firmware/
 # Our WiFi name and password: never commit (this repository is public)
 watchface/wifi_secrets.h
 
+# The lucky moments table is personal (from a birth chart): never commit it.
+# GitHub Actions gets it from the LUCKY_WINDOWS_H_GZ secret (see lucky_windows.example.h).
+watchface/lucky_windows.h
+
 # Python cache files
 __pycache__/

@@ -85,8 +85,18 @@ and asset pipeline.
   Keep it that way.
 
 - **Menus:** the library menu has "Font Sizes" (library) and, via the virtual
-  `extraMenuItem()` / `showExtraMenuItem()` hooks, our face's "Planets" page (degree, sign,
-  R for retrograde; whole degrees). With 8 items the menu spacing drops from 25 to 22 px.
+  `extraMenuItem(i)` / `showExtraMenuItem(i)` hooks (up to `MAX_EXTRA_MENU_ITEMS`), our
+  face's "Planets" page (degree, sign, R for retrograde; whole degrees) and "Lucky" page.
+  A face page that sets `guiState = EXTRA_PAGE_STATE` gets Up/Down through
+  `extraMenuItemButton(i, step)`. With 8 items the menu spacing drops from 25 to 22 px, with
+  9 to 21 px.
+- **Lucky moments:** `watchface/lucky_windows.h` is the user's own table, generated outside
+  this repository (`fortune_timer.py` / `make_watchy_header.py`). Use it as given: don't
+  recompute the astrology on the watch or edit the table by hand. It is personal (from her
+  birth chart), so it is **gitignored and must never be committed**; CI gets it from the
+  `LUCKY_WINDOWS_H_GZ` secret (gzip + base64), and without it builds the empty
+  `lucky_windows.example.h`. Both Part of Fortune
+  formulas show as "Fortuna"; Tyche as "Tyche". Scores of 9+ are the standouts.
 
 - **Screens that stay up while the watch waits for a button** (menu pages): call
   `display.powerOff()` straight after `display.display(...)`. The driver leaves the panel's
