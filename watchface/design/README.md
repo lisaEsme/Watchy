@@ -4,7 +4,7 @@
   watch face background.
 - `sun.png`: the sun icon, 16 × 16, which the watch moves along the arc from sunrise to sunset.
 - `moon.png`: the moon icon, which moves along the arc at night, from sunset (left) to sunrise (right).
-- `icons/`: moon phases (64 × 64) and planet and zodiac symbols (16 × 16), drawn by the watch
+- `icons/`: moon phases (64 × 64) and planet and zodiac symbols and the lucky-day stars (`lucky_day`, `super_lucky_day`) (16 × 16), drawn by the watch
   for the moon phase (big disc), the planetary hour (under the seven-pointed star) and the
   moon's sign (under the crescent).
 - `face-annotated.png`: notes on what each part of the face is for.

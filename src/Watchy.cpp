@@ -169,10 +169,10 @@ void Watchy::handleButtonPress() {
       case 6:
         showFontSizes();
         break;
-      case MENU_LENGTH: // the watch face's own item, if it has one
-        showExtraMenuItem();
-        break;
-      default:
+      default: // the watch face's own items, if it has any
+        if (menuIndex >= MENU_LENGTH) {
+          showExtraMenuItem(menuIndex - MENU_LENGTH);
+        }
         break;
       }
     } /*else if (guiState == FW_UPDATE_STATE) {
@@ -188,8 +188,9 @@ void Watchy::handleButtonPress() {
       showMenu(menuIndex, false); // exit to menu if already in app
     } else if (guiState == FW_UPDATE_STATE) {
       showMenu(menuIndex, false); // exit to menu if already in app
-    } else if (guiState == FONT_SIZES_STATE) {
-      showMenu(menuIndex, false); // exit to menu from the font sizes pages
+    } else if (guiState == FONT_SIZES_STATE ||
+               guiState == EXTRA_PAGE_STATE) {
+      showMenu(menuIndex, false); // exit to menu from the font sizes or face pages
     } else if (guiState == WATCHFACE_STATE) {
       return;
     }
@@ -205,6 +206,8 @@ void Watchy::handleButtonPress() {
     } else if (guiState == FONT_SIZES_STATE) {
       fontSizesPage--;
       showFontSizes(true);
+    } else if (guiState == EXTRA_PAGE_STATE) {
+      extraMenuItemButton(menuIndex - MENU_LENGTH, -1);
     } else if (guiState == WATCHFACE_STATE) {
       return;
     }
@@ -220,6 +223,8 @@ void Watchy::handleButtonPress() {
     } else if (guiState == FONT_SIZES_STATE) {
       fontSizesPage++;
       showFontSizes(true);
+    } else if (guiState == EXTRA_PAGE_STATE) {
+      extraMenuItemButton(menuIndex - MENU_LENGTH, +1);
     } else if (guiState == WATCHFACE_STATE) {
       return;
     }
@@ -265,10 +270,10 @@ void Watchy::handleButtonPress() {
           case 6:
             showFontSizes();
             break;
-          case MENU_LENGTH: // the watch face's own item, if it has one
-            showExtraMenuItem();
-            break;
-          default:
+          default: // the watch face's own items, if it has any
+            if (menuIndex >= MENU_LENGTH) {
+              showExtraMenuItem(menuIndex - MENU_LENGTH);
+            }
             break;
           }
         }/* else if (guiState == FW_UPDATE_STATE) {
@@ -285,8 +290,9 @@ void Watchy::handleButtonPress() {
           showMenu(menuIndex, false); // exit to menu if already in app
         } else if (guiState == FW_UPDATE_STATE) {
           showMenu(menuIndex, false); // exit to menu if already in app
-        } else if (guiState == FONT_SIZES_STATE) {
-          showMenu(menuIndex, false); // exit to menu from the font sizes pages
+        } else if (guiState == FONT_SIZES_STATE ||
+                   guiState == EXTRA_PAGE_STATE) {
+          showMenu(menuIndex, false); // exit to menu from the font sizes or face pages
         }
       } else if (digitalRead(UP_BTN_PIN) == ACTIVE_LOW) {
         lastTimeout = millis();
@@ -299,6 +305,8 @@ void Watchy::handleButtonPress() {
         } else if (guiState == FONT_SIZES_STATE) {
           fontSizesPage--;
           showFontSizes(true);
+        } else if (guiState == EXTRA_PAGE_STATE) {
+          extraMenuItemButton(menuIndex - MENU_LENGTH, -1);
         }
       } else if (digitalRead(DOWN_BTN_PIN) == ACTIVE_LOW) {
         lastTimeout = millis();
@@ -311,6 +319,8 @@ void Watchy::handleButtonPress() {
         } else if (guiState == FONT_SIZES_STATE) {
           fontSizesPage++;
           showFontSizes(true);
+        } else if (guiState == EXTRA_PAGE_STATE) {
+          extraMenuItemButton(menuIndex - MENU_LENGTH, +1);
         }
       }
     }
@@ -330,11 +340,11 @@ void Watchy::showMenu(byte menuIndex, bool partialRefresh) {
       "About Watchy", "Vibrate Motor", "Show Accelerometer",
       "Set Time",     "Setup WiFi",    /*"Update Firmware",*/
       "Sync NTP",     "Font Sizes"};
-  // With a watch face's extra item there are 8 lines, so they move closer together
+  // With a watch face's own items there are 8 or 9 lines, so they move closer together
   int itemCount = menuLength();
-  int itemHeight = itemCount > MENU_LENGTH ? 22 : MENU_HEIGHT;
+  int itemHeight = itemCount > MENU_LENGTH + 1 ? 21 : itemCount > MENU_LENGTH ? 22 : MENU_HEIGHT;
   for (int i = 0; i < itemCount; i++) {
-    const char *item = i < MENU_LENGTH ? menuItems[i] : extraMenuItem();
+    const char *item = i < MENU_LENGTH ? menuItems[i] : extraMenuItem(i - MENU_LENGTH);
     yPos = itemHeight + (itemHeight * i);
     display.setCursor(0, yPos);
     if (i == menuIndex) {
@@ -371,11 +381,11 @@ void Watchy::showFastMenu(byte menuIndex) {
       "About Watchy", "Vibrate Motor", "Show Accelerometer",
       "Set Time",     "Setup WiFi",    /*"Update Firmware",*/
       "Sync NTP",     "Font Sizes"};
-  // With a watch face's extra item there are 8 lines, so they move closer together
+  // With a watch face's own items there are 8 or 9 lines, so they move closer together
   int itemCount = menuLength();
-  int itemHeight = itemCount > MENU_LENGTH ? 22 : MENU_HEIGHT;
+  int itemHeight = itemCount > MENU_LENGTH + 1 ? 21 : itemCount > MENU_LENGTH ? 22 : MENU_HEIGHT;
   for (int i = 0; i < itemCount; i++) {
-    const char *item = i < MENU_LENGTH ? menuItems[i] : extraMenuItem();
+    const char *item = i < MENU_LENGTH ? menuItems[i] : extraMenuItem(i - MENU_LENGTH);
     yPos = itemHeight + (itemHeight * i);
     display.setCursor(0, yPos);
     if (i == menuIndex) {

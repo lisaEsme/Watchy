@@ -100,8 +100,10 @@
 #define APP_STATE       1
 #define FW_UPDATE_STATE 2
 #define FONT_SIZES_STATE 3
+#define EXTRA_PAGE_STATE 4 // a watch face menu page that uses Up/Down
 #define MENU_HEIGHT     25
 #define MENU_LENGTH     7
+#define MAX_EXTRA_MENU_ITEMS 2 // the menu fits 9 lines
 // set time
 #define SET_HOUR   0
 #define SET_MINUTE 1

@@ -19,6 +19,7 @@
 #include "astro.h"
 #include "face_astro.h"
 #include "moon.h"
+#include "lucky.h"
 #include "planets.h"
 #include "sun.h"
 #include <time.h>
@@ -48,6 +49,7 @@ public:
     snprintf(text, sizeof(text), "%d %s %02d", currentTime.Day,
              MONTHS[(currentTime.Month + 11) % 12], (currentTime.Year + 1970) % 100);
     drawCentred(text, 2, 2, (DATE_LEFT + DATE_RIGHT + 1) / 2, DATE_BOTTOM);
+    drawLuckyDay(display.getCursorX());
 
     // Steps, reset at midnight, after the "Steps" label
     if (currentTime.Hour == 0 && currentTime.Minute == 0) {
@@ -68,10 +70,29 @@ public:
   // The "Font Sizes" menu shows our face font, Pocket Pixel
   const GFXfont *fontSizesFont() override { return &PocketPixel; }
 
-  // Menu item "Planets": where each planet is in the (tropical) zodiac right now
-  const char *extraMenuItem() override { return "Planets"; }
+  // Our menu items: "Planets" and "Lucky" (see showPlanets() and showLucky())
+  const char *extraMenuItem(int index) override {
+    static const char *ITEMS[] = {"Planets", "Lucky"};
+    return index < 2 ? ITEMS[index] : nullptr;
+  }
 
-  void showExtraMenuItem() override {
+  void showExtraMenuItem(int index) override {
+    if (index == 0) {
+      showPlanets();
+    } else {
+      showLucky(LUCKY_OPEN);
+    }
+  }
+
+  // Up/Down on the Lucky page turn its pages
+  void extraMenuItemButton(int index, int step) override {
+    if (index == 1) {
+      showLucky(step < 0 ? LUCKY_UP : LUCKY_DOWN);
+    }
+  }
+
+  // Menu item "Planets": where each planet is in the (tropical) zodiac right now
+  void showPlanets() {
     static const char *NAMES[] = {"Sun", "Moon", "Mercury", "Venus", "Mars",
                                   "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"};
     static const char *SIGNS[] = {"Ari", "Tau", "Gem", "Can", "Leo", "Vir",
@@ -119,6 +140,156 @@ public:
     guiState = APP_STATE; // Back returns to the menu
   }
 
+  // ---- Lucky moments -------------------------------------------------------
+
+  // Menu item "Lucky": the coming lucky moments from lucky_windows.h, grouped by day,
+  // each with its time, Tyche or Fortuna (Part of Fortune) and its score. The header
+  // counts down to the next one. Up/Down turn the pages; it always opens on the next
+  // moment. Moments stay listed until 2 minutes after their time (they are +/- 2 min).
+  enum LuckyAction { LUCKY_OPEN, LUCKY_UP, LUCKY_DOWN };
+  static const int LUCKY_ROWS = 10; // rows under the header
+  static const int16_t LUCKY_TIME_X = 10, LUCKY_NAME_X = 62;
+  static RTC_DATA_ATTR int luckyFirst; // first moment on the page shown
+  static RTC_DATA_ATTR int luckyNext;  // first moment after it (for Down)
+
+  // Rows needed to list moments [from, to): one per moment, plus a heading for each day
+  int luckyRows(int from, int to) {
+    int rows = 0;
+    long day = -1;
+    for (int i = from; i < to; i++) {
+      long d = localDayNumber(LUCKY_MOMENTS[i].utc);
+      rows += (d != day) ? 2 : 1;
+      day = d;
+    }
+    return rows;
+  }
+
+  void showLucky(LuckyAction action) {
+    RTC.read(currentTime);
+    time_t now = nowUTC();
+    int upcoming = lucky::firstUpcoming(now);
+
+    if (action == LUCKY_OPEN || luckyFirst < upcoming) {
+      luckyFirst = upcoming;
+    } else if (action == LUCKY_DOWN) {
+      if (luckyNext < LUCKY_MOMENT_COUNT) {
+        luckyFirst = luckyNext;
+      }
+    } else { // Up: the earliest start whose page still reaches the current first moment
+      int start = luckyFirst;
+      while (start > upcoming && luckyRows(start - 1, luckyFirst) <= LUCKY_ROWS) {
+        start--;
+      }
+      luckyFirst = start;
+    }
+
+    display.setFullWindow();
+    display.fillScreen(GxEPD_WHITE);
+    display.setFont(&PocketPixel);
+    display.setTextColor(GxEPD_BLACK);
+    display.setTextSize(2);
+
+    // Header: "Lucky" and how long until the next moment
+    char text[24];
+    display.setCursor(2, 13);
+    display.print("Lucky");
+    if (upcoming < LUCKY_MOMENT_COUNT) {
+      formatCountdown((long)LUCKY_MOMENTS[upcoming].utc - (long)now, text, sizeof(text));
+      printRightAligned(text, 197, 13);
+    } else {
+#ifdef LUCKY_TABLE_MISSING
+      static const char *LINES[] = {"No table:", "built without", "lucky_windows.h", nullptr,
+                                    "See README.md"};
+#else
+      static const char *LINES[] = {"No more moments:", "the table has", "run out.", nullptr,
+                                    "Regenerate", "lucky_windows.h"};
+#endif
+      for (size_t l = 0; l < sizeof(LINES) / sizeof(LINES[0]); l++) {
+        if (LINES[l]) {
+          display.setCursor(2, luckyRow(l));
+          display.print(LINES[l]);
+        }
+      }
+    }
+
+    // The moments, with a heading for each day ("Today", "Tomorrow" or e.g. "Sun 13 Dec").
+    // A heading never goes on the last row on its own.
+    int row = 0, i = luckyFirst;
+    long day = -1;
+    long today = localDayNumber(now);
+    while (i < LUCKY_MOMENT_COUNT) {
+      const LuckyMoment &m = LUCKY_MOMENTS[i];
+      long d = localDayNumber(m.utc);
+      if (d != day) {
+        if (row + 2 > LUCKY_ROWS) {
+          break;
+        }
+        drawLuckyDayHeading(m.utc, d - today, luckyRow(row++));
+        day = d;
+      } else if (row + 1 > LUCKY_ROWS) {
+        break;
+      }
+      int16_t baseline = luckyRow(row++);
+      formatLocalTime(m.utc, text, sizeof(text));
+      display.setCursor(LUCKY_TIME_X, baseline);
+      display.print(text);
+      display.setCursor(LUCKY_NAME_X, baseline);
+      display.print(lucky::pointName(m.point));
+      snprintf(text, sizeof(text), "%d", m.score);
+      printRightAligned(text, 197, baseline);
+      i++;
+    }
+    luckyNext = i;
+
+    display.setTextSize(1);
+    display.display(false);
+    display.powerOff(); // don't leave the high voltage on while the page waits (see showFontSizes)
+    guiState = EXTRA_PAGE_STATE; // Up/Down turn the pages, Back returns to the menu
+  }
+
+  static int16_t luckyRow(int row) { return 13 + 18 + 17 * row; }
+
+  // A day's heading, with a line from the text to the right edge
+  void drawLuckyDayHeading(time_t utc, long daysAway, int16_t baseline) {
+    static const char *DAYS[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+    char text[16];
+    if (daysAway == 0) {
+      strcpy(text, "Today");
+    } else if (daysAway == 1) {
+      strcpy(text, "Tomorrow");
+    } else {
+      struct tm local;
+      toLocal(utc, local);
+      snprintf(text, sizeof(text), "%s %d %s", DAYS[local.tm_wday], local.tm_mday,
+               MONTHS[local.tm_mon]);
+    }
+    display.setCursor(2, baseline);
+    display.print(text);
+    int16_t x = display.getCursorX() + 4;
+    display.drawFastHLine(x, baseline - 6, 198 - x, GxEPD_BLACK);
+  }
+
+  // "now", "in 12m", "in 4h05m" (under two days), otherwise "in 25d"
+  static void formatCountdown(long seconds, char *out, size_t size) {
+    long minutes = (seconds + 59) / 60;
+    if (seconds <= lucky::SLACK) {
+      snprintf(out, size, "now");
+    } else if (minutes < 60) {
+      snprintf(out, size, "in %ldm", minutes);
+    } else if (minutes < 48 * 60) {
+      snprintf(out, size, "in %ldh%02ldm", minutes / 60, minutes % 60);
+    } else {
+      snprintf(out, size, "in %ldd", minutes / (24 * 60));
+    }
+  }
+
+  // The local (UK) calendar day a UTC time falls on, as a day count (for comparing days)
+  long localDayNumber(time_t utc) {
+    struct tm local;
+    toLocal(utc, local);
+    return (long)(utcMidnight(local.tm_year + 1900, local.tm_mon + 1, local.tm_mday) / 86400);
+  }
+
   static const int16_t PLANETS_NAME_X = 2, PLANETS_DEGREE_RIGHT = 98, PLANETS_SIGN_X = 110,
                        PLANETS_RETRO_X = 150;
 
@@ -137,6 +308,24 @@ public:
   }
 
 private:
+  // A star just after the date on a lucky day (a day with any lucky moment, UK time):
+  // an outline star, or a filled star on a super lucky day (a moment scoring 9 or more).
+  // dateEnd: the x just after the date's last letter.
+  void drawLuckyDay(int16_t dateEnd) {
+    int y = currentTime.Year + 1970, m = currentTime.Month, d = currentTime.Day;
+    uint8_t best = lucky::bestScore(localMidnight(y, m, d), localMidnight(y, m, d + 1));
+    if (best == 0) {
+      return;
+    }
+    display.drawBitmap(dateEnd + LUCKY_ICON_GAP, LUCKY_ICON_Y,
+                       lucky_icons[best >= lucky::SUPER_SCORE ? 1 : 0], LUCKY_ICONS_SIZE,
+                       LUCKY_ICONS_SIZE, GxEPD_BLACK);
+  }
+
+  // The star sits beside the date, centred on its digits (DATE_TOP to DATE_BOTTOM)
+  static const int16_t LUCKY_ICON_GAP = 4;
+  static const int16_t LUCKY_ICON_Y = (DATE_TOP + DATE_BOTTOM + 1) / 2 - 8;
+
   // Moon phase, moon sign and planetary hour (see astro.h)
   void drawAstro() {
     float lat = settings.lat.toFloat(), lon = settings.lon.toFloat();
@@ -490,13 +679,18 @@ private:
   // settings.h (or the fixed offset if none is set)
   void formatLocalTime(time_t utc, char *out, size_t size) {
     struct tm local;
+    toLocal(utc, local);
+    snprintf(out, size, "%02d:%02d", local.tm_hour, local.tm_min);
+  }
+
+  // A UTC timestamp as local (UK) date and time
+  void toLocal(time_t utc, struct tm &local) {
     if (useTimezone()) {
       localtime_r(&utc, &local);
     } else {
       time_t shifted = utc + gmtOffset;
       gmtime_r(&shifted, &local);
     }
-    snprintf(out, size, "%02d:%02d", local.tm_hour, local.tm_min);
   }
 
   // Draw text with its horizontal centre at centreX; bottomY is the last pixel
@@ -522,6 +716,8 @@ RTC_DATA_ATTR time_t WatchFace::moonCheckedAt = 0;
 RTC_DATA_ATTR bool WatchFace::moonWasUp = false;
 RTC_DATA_ATTR time_t WatchFace::moonRiseUTC = 0;
 RTC_DATA_ATTR time_t WatchFace::moonSetUTC = 0;
+RTC_DATA_ATTR int WatchFace::luckyFirst = 0;
+RTC_DATA_ATTR int WatchFace::luckyNext = 0;
 
 WatchFace watchy(settings);
 

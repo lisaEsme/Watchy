@@ -38,6 +38,20 @@ jobs:
       - name: Install PlatformIO
         run: pip install "platformio==6.2.0"
 
+      # The lucky moments table is personal, so it lives in a repository secret rather than
+      # in the code (see watchface/lucky_windows.example.h). Without it the build still
+      # works, and the Lucky page says the table is missing.
+      - name: Add the lucky moments table
+        env:
+          LUCKY_WINDOWS_H_GZ: ${{ secrets.LUCKY_WINDOWS_H_GZ }}
+        run: |
+          if [ -n "$LUCKY_WINDOWS_H_GZ" ]; then
+            echo "$LUCKY_WINDOWS_H_GZ" | base64 -d | gunzip > watchface/lucky_windows.h
+            grep -c "^  {" watchface/lucky_windows.h | sed 's/^/Lucky moments in the table: /'
+          else
+            echo "::warning::No LUCKY_WINDOWS_H_GZ secret: building without the lucky moments table"
+          fi
+
       - name: Build
         run: pio run -e watchy-v20
 

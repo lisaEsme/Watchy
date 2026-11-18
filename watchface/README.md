@@ -40,6 +40,11 @@ At sunrise the face switches back to the day face.
   very short buzz (40 ms) marks the start of each new planetary hour.
 - **Under the crescent:** the sign the moon is in.
 
+**Lucky days:** a star just after the date on a day with a lucky moment (UK time, from the
+Lucky table, see Menu → Lucky): an **outline star** on a lucky day (about 122 days a year), a
+**filled star** on a super lucky day, when a moment scores 9 or more (about 19 days). The star
+stays all day, before and after the moments.
+
 **Not used:** the default on-the-hour buzz is switched off (`vibrateOClock = false`).
 
 **Battery:** a small battery icon in the bottom-right corner with 0–4 bars. The voltage is
@@ -62,6 +67,25 @@ the menu. The positions are from `planets.h` for Mercury to Pluto (orbital eleme
 Jupiter–Saturn–Uranus perturbations, after Paul Schlyter, with light-time, aberration and
 nutation corrections) and `astro.h` for the Sun and Moon. They are within 2.5 arcminutes of
 Swiss Ephemeris over 2025–2035, with no disagreement about signs or retrogrades.
+
+**Menu → Lucky:** the coming lucky moments for buying lottery tickets, from the pre-computed
+table in `lucky_windows.h` (the watch does no astrology for this). Each is the minute a local
+angle (Ascendant, MC, Descendant or IC) crosses a natal luck point, listed under its day
+("Today", "Tomorrow", then e.g. "Sun 13 Dec") with its UK time, **Tyche** or **Fortuna** (the
+Part of Fortune, day or night formula) and its score: the number of supporting transits, 5 to
+13, where 9 and up are the standouts. The header counts down to the next moment ("in 19m",
+"in 4h05m", "in 3d", "now"). Each time is really ±2 minutes, so a moment stays listed until 2
+minutes after it. Up/Down turn the pages and Back returns to the menu; the page always opens on
+the next moment. The table covers 18 Nov 2026 to 17 Nov 2027 (07:00 to 22:00 UK time only);
+once it runs out the page says so. Regenerate it with `make_watchy_header.py` alongside
+`fortune_timer.py` (kept outside this repository) and replace `lucky_windows.h`.
+
+The table is personal (it comes from a birth chart) and this repository is public, so
+`lucky_windows.h` is gitignored, like `wifi_secrets.h`. Building on a computer, put the file in
+`watchface/`. For GitHub Actions, store it in the repository secret `LUCKY_WINDOWS_H_GZ`
+(Settings → Secrets and variables → Actions), packed with
+`gzip -9c lucky_windows.h | base64 -w0`; the workflow unpacks it before building. Without it,
+the firmware still builds and the Lucky page says the table is missing.
 
 **Menu → Font Sizes:** shows the face font, Pocket Pixel, at every whole-number size from 1×
 (6 pixels tall) to 11× (66 pixels) over four pages. Up/Down turn the pages and Back returns to
@@ -115,6 +139,7 @@ After flashing, use **Sync Time** in the watch's menu to set the time over WiFi.
 | Moon phase | `astro.h` | The moon's angle from the sun, split into 8 equal parts centred on new, quarters and full |
 | Planet positions | `planets.h` | Schlyter's orbital elements and perturbations; geocentric, light-time, aberration, nutation |
 | Planetary hours | `astro.h` | Daylight and night each split into 12 from sunrise and sunset; Chaldean order from the day's ruler; the planetary day starts at sunrise |
+| Lucky moments | `lucky.h`, `lucky_windows.h` | Looked up in a table computed on a computer; binary search for the next moment |
 | Local times | `main.cpp` | The `TIMEZONE` rule through the C library (`setenv("TZ")`, `localtime_r`, `mktime`) |
 
 Moon times are saved in memory that survives deep sleep (`RTC_DATA_ATTR`). They're only
@@ -140,6 +165,9 @@ These are checked against independent sources, running the same code on a comput
 | `main.cpp` | The watch face: what is drawn where, day and night logic, the planetary-hour buzz |
 | `settings.h` | Location, time zone, WiFi, weather settings |
 | `sun.h`, `moon.h`, `astro.h` | The astronomy (no internet needed) |
+| `lucky_windows.h` | The lucky moments table: personal, gitignored, generated elsewhere (see Menu → Lucky) |
+| `lucky_windows.example.h` | Empty stand-in used when `lucky_windows.h` is missing |
+| `lucky.h` | Finds the next lucky moment and a day's best score in the table |
 | `design/` | The design (`face.png`), the sun and moon arc icons, the icon set in `icons/`, and the Pocket Pixel font. See `design/README.md` |
 | `face_*.h`, `PocketPixel.h` | Generated from `design/` by `tools/make_watchface_assets.py`. Don't edit by hand |
 | `../tools/preview_watchface.py` | Draws a pixel-accurate preview PNG without flashing |

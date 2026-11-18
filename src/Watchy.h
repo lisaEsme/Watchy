@@ -99,11 +99,19 @@ public:
   // Called on each minute tick before redrawing the watch face; return false to skip
   // this minute's redraw (e.g. to save battery). currentTime is already up to date.
   virtual bool updateFaceOnTick() { return true; }
-  // A watch face can add one item of its own at the end of the menu: return its name
-  // (nullptr = none) and draw it in showExtraMenuItem(). Back returns to the menu.
-  virtual const char *extraMenuItem() { return nullptr; }
-  virtual void showExtraMenuItem() {}
-  int menuLength() { return MENU_LENGTH + (extraMenuItem() ? 1 : 0); }
+  // A watch face can add up to MAX_EXTRA_MENU_ITEMS items of its own at the end of the
+  // menu: extraMenuItem(i) returns the name of item i (0, 1, ...; nullptr after the
+  // last) and showExtraMenuItem(i) draws it. Back returns to the menu. A page that
+  // sets guiState = EXTRA_PAGE_STATE also gets Up/Down: extraMenuItemButton(i, -1 or +1).
+  virtual const char *extraMenuItem(int index) { return nullptr; }
+  virtual void showExtraMenuItem(int index) {}
+  virtual void extraMenuItemButton(int index, int step) {}
+  int extraMenuCount() {
+    int n = 0;
+    while (n < MAX_EXTRA_MENU_ITEMS && extraMenuItem(n)) n++;
+    return n;
+  }
+  int menuLength() { return MENU_LENGTH + extraMenuCount(); }
   void showBuzz();
   void showAccelerometer();
   void showUpdateFW();
