@@ -40,6 +40,11 @@ At sunrise the face switches back to the day face.
   very short buzz (40 ms) marks the start of each new planetary hour.
 - **Under the crescent:** the sign the moon is in.
 
+**Lucky days:** a star just after the date on a day with a lucky moment (UK time, from the
+Lucky table, see Menu → Lucky): an **outline star** on a lucky day (about 122 days a year), a
+**filled star** on a super lucky day, when a moment scores 9 or more (about 19 days). The star
+stays all day, before and after the moments.
+
 **Not used:** the default on-the-hour buzz is switched off (`vibrateOClock = false`).
 
 **Battery:** a small battery icon in the bottom-right corner with 0–4 bars. The voltage is

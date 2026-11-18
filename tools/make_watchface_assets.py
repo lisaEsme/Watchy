@@ -5,7 +5,7 @@ Reads (from watchface/design/):
   face.png                 200x200 black-and-white design
   sun.png                  the sun icon that travels along the arc by day (optional)
   moon.png                 the moon icon that travels along the arc at night
-  icons/                   moon phases (64x64), planets and zodiac signs (16x16)
+  icons/                   moon phases (64x64), planets, zodiac signs and lucky-day stars (16x16)
   PocketPixel-Regular.ttf  Pocket Pixel font (CC BY-SA 3.0, stuck-in-suburbia)
 
 Writes (to watchface/):
@@ -13,7 +13,7 @@ Writes (to watchface/):
   PocketPixel.h      the font in Adafruit GFX format, 1 screen pixel per font pixel
   face_layout.h      positions of the live areas, measured from the design
   face_sun.h         the sun and moon icons and their positions along the arc
-  face_astro.h       the moon phase, planet and zodiac icons
+  face_astro.h       the moon phase, planet, zodiac and lucky-day icons
 
 Run from the repository root:  python3 tools/make_watchface_assets.py
 Needs: pip install pillow fonttools
@@ -286,6 +286,7 @@ MOON_PHASES = ["1_new_moon", "2_waxing_crescent", "3_first_quarter", "4_waxing_g
                "5_full_moon", "6_waning_gibbous", "7_last_quarter", "8_waning_crescent"]
 # Chaldean order, matching astro::Planet in watchface/astro.h
 PLANETS = ["08_saturn", "07_jupiter", "06_mars", "01_sun", "04_venus", "03_mercury", "02_moon"]
+LUCKY = ["lucky_day", "super_lucky_day"]
 SIGNS = ["01_aries", "02_taurus", "03_gemini", "04_cancer", "05_leo", "06_virgo", "07_libra",
          "08_scorpio", "09_sagittarius", "10_capricorn", "11_aquarius", "12_pisces"]
 
@@ -340,6 +341,8 @@ def write_astro_icons():
                      "Planets in Chaldean order: Saturn, Jupiter, Mars, Sun, Venus, Mercury, Moon")
         + icon_table("zodiac_icons", [icons / "16x16" / f"zodiac_{n}_16x16.png" for n in SIGNS],
                      "Zodiac signs, 0 = Aries ... 11 = Pisces")
+        + icon_table("lucky_icons", [icons / "16x16" / f"{n}_16x16.png" for n in LUCKY],
+                     "Beside the date: 0 = lucky day (outline star), 1 = super lucky day (filled star)")
     )
 
 

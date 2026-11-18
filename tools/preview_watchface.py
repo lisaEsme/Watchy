@@ -13,6 +13,7 @@ Run from the repository root:
   planet 0-6 in Chaldean order Saturn, Jupiter, Mars, Sun, Venus, Mercury, Moon; moon sign
   0-11 with 0 = Aries). Default 4,1,11 as in the design.
   Battery: --battery BARS[,low] (0-4 bars; "low" adds the LOW warning). Default 4.
+  Lucky day star beside the date: --lucky lucky (outline) or --lucky super (filled).
 """
 import re
 import sys
@@ -77,8 +78,11 @@ class Canvas:
             x += a * sx - (1 if tight and ch.isdigit() else 0)
 
     def centred(self, text, sx, sy, cx, bottom):
+        """Returns the cursor x after the text, as on the watch."""
         x1, w = self.bounds(text, sx, sy)
-        self.print(text, cx - w // 2 - x1, bottom + 1, sx, sy)
+        x = cx - w // 2 - x1
+        self.print(text, x, bottom + 1, sx, sy)
+        return x + sum(self.g[ch][3] * sx for ch in text)
 
 
 def load_icons():
@@ -135,7 +139,7 @@ def draw_battery(img, cv, bars, low):
 
 
 def render(time_text, date_text, steps_text, line1="07:20", line2="16:07", step="0", line3="--:--", night=False,
-           astro=(4, 1, 11), battery=(4, False)):
+           astro=(4, 1, 11), battery=(4, False), lucky=None):
     """Day: line1/line2 are sunrise/sunset and step places the sun.
     Night: line1/line2/line3 are moonrise/next sunrise/moonset and step places the moon
     (how far from sunset to sunrise)."""
@@ -143,7 +147,12 @@ def render(time_text, date_text, steps_text, line1="07:20", line2="16:07", step=
     img = load_background()
     cv = Canvas(img, load_font())
     cv.centred(time_text, 6, 7, (L["TIME_LEFT"] + L["TIME_RIGHT"] + 1) // 2, L["TIME_BOTTOM"])
-    cv.centred(date_text, 2, 2, (L["DATE_LEFT"] + L["DATE_RIGHT"] + 1) // 2, L["DATE_BOTTOM"])
+    date_end = cv.centred(date_text, 2, 2, (L["DATE_LEFT"] + L["DATE_RIGHT"] + 1) // 2, L["DATE_BOTTOM"])
+    if lucky is not None:  # WatchFace::drawLuckyDay(): 0 = lucky day, 1 = super lucky day
+        num, table = load_astro()
+        s = num("LUCKY_ICONS_SIZE")
+        draw_bitmap(img, date_end + 4, (L["DATE_TOP"] + L["DATE_BOTTOM"] + 1) // 2 - 8,
+                    (s, s, table("lucky_icons")[lucky]))
     cv.print(steps_text, L["STEPS_LEFT"], L["STEPS_BOTTOM"] + 1, 2, 2)
     if night:  # WatchFace::replaceLabel()
         draw = ImageDraw.Draw(img)
@@ -188,8 +197,14 @@ if __name__ == "__main__":
         i = args.index("--astro")
         astro = tuple(int(v) for v in args[i + 1].split(","))
         del args[i:i + 2]
+    lucky = None
+    if "--lucky" in args:  # --lucky lucky or --lucky super
+        i = args.index("--lucky")
+        lucky = 1 if args[i + 1] == "super" else 0
+        del args[i:i + 2]
     out, time_text, date_text, steps_text, *rest = args
-    img = render(time_text, date_text, steps_text, *rest, night=night, astro=astro, battery=battery)
+    img = render(time_text, date_text, steps_text, *rest, night=night, astro=astro, battery=battery,
+                 lucky=lucky)
     if scale > 1:
         img = img.resize((200 * scale, 200 * scale), Image.NEAREST)
     img.save(out)

@@ -97,6 +97,9 @@ and asset pipeline.
   `LUCKY_WINDOWS_H_GZ` secret (gzip + base64), and without it builds the empty
   `lucky_windows.example.h`. Both Part of Fortune
   formulas show as "Fortuna"; Tyche as "Tyche". Scores of 9+ are the standouts.
+  On the face, a star after the date marks a lucky day (outline: any moment that UK day;
+  filled: "super lucky", a score of 9+). The stars are `design/icons/16x16/*lucky_day_16x16.png`
+  (her pick, 18 Nov 2026); preview with `--lucky lucky|super`.
 
 - **Screens that stay up while the watch waits for a button** (menu pages): call
   `display.powerOff()` straight after `display.display(...)`. The driver leaves the panel's

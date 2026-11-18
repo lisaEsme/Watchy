@@ -49,6 +49,7 @@ public:
     snprintf(text, sizeof(text), "%d %s %02d", currentTime.Day,
              MONTHS[(currentTime.Month + 11) % 12], (currentTime.Year + 1970) % 100);
     drawCentred(text, 2, 2, (DATE_LEFT + DATE_RIGHT + 1) / 2, DATE_BOTTOM);
+    drawLuckyDay(display.getCursorX());
 
     // Steps, reset at midnight, after the "Steps" label
     if (currentTime.Hour == 0 && currentTime.Minute == 0) {
@@ -307,6 +308,24 @@ public:
   }
 
 private:
+  // A star just after the date on a lucky day (a day with any lucky moment, UK time):
+  // an outline star, or a filled star on a super lucky day (a moment scoring 9 or more).
+  // dateEnd: the x just after the date's last letter.
+  void drawLuckyDay(int16_t dateEnd) {
+    int y = currentTime.Year + 1970, m = currentTime.Month, d = currentTime.Day;
+    uint8_t best = lucky::bestScore(localMidnight(y, m, d), localMidnight(y, m, d + 1));
+    if (best == 0) {
+      return;
+    }
+    display.drawBitmap(dateEnd + LUCKY_ICON_GAP, LUCKY_ICON_Y,
+                       lucky_icons[best >= lucky::SUPER_SCORE ? 1 : 0], LUCKY_ICONS_SIZE,
+                       LUCKY_ICONS_SIZE, GxEPD_BLACK);
+  }
+
+  // The star sits beside the date, centred on its digits (DATE_TOP to DATE_BOTTOM)
+  static const int16_t LUCKY_ICON_GAP = 4;
+  static const int16_t LUCKY_ICON_Y = (DATE_TOP + DATE_BOTTOM + 1) / 2 - 8;
+
   // Moon phase, moon sign and planetary hour (see astro.h)
   void drawAstro() {
     float lat = settings.lat.toFloat(), lon = settings.lon.toFloat();
